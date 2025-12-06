@@ -1,9 +1,27 @@
-use std::collections::HashMap;
+use cairo_air::{
+    air::{lookup_sum, CairoClaim, CairoComponents, CairoInteractionElements},
+    verifier::INTERACTION_POW_BITS,
+    CairoProof, PreProcessedTraceVariant,
+};
 use itertools::Itertools;
 use num_traits::{One, Zero};
-use stwo::core::{channel::{Channel, Poseidon31Channel}, fields::{m31::{BaseField, M31}, qm31::SecureField}, pcs::{CommitmentSchemeVerifier, PcsConfig}, vcs::{poseidon31_hash::Poseidon31Hash, poseidon31_merkle::{Poseidon31MerkleChannel, Poseidon31MerkleHasher}}};
-use cairo_air::{CairoProof, PreProcessedTraceVariant, air::{CairoClaim, CairoComponents, CairoInteractionElements, lookup_sum}, verifier::INTERACTION_POW_BITS};
-use stwo_cairo_common::{builtins::RANGE_CHECK_MEMORY_CELLS, memory::LARGE_MEMORY_VALUE_ID_BASE, prover_types::cpu::PRIME};
+use std::collections::HashMap;
+use stwo::core::{
+    channel::{Channel, Poseidon31Channel},
+    fields::{
+        m31::{BaseField, M31},
+        qm31::SecureField,
+    },
+    pcs::{CommitmentSchemeVerifier, PcsConfig},
+    vcs::{
+        poseidon31_hash::Poseidon31Hash,
+        poseidon31_merkle::{Poseidon31MerkleChannel, Poseidon31MerkleHasher},
+    },
+};
+use stwo_cairo_common::{
+    builtins::RANGE_CHECK_MEMORY_CELLS, memory::LARGE_MEMORY_VALUE_ID_BASE,
+    prover_types::cpu::PRIME,
+};
 use stwo_constraint_framework::PREPROCESSED_TRACE_IDX;
 
 pub struct CairoFiatShamirHints {
@@ -62,7 +80,7 @@ impl CairoFiatShamirHints {
             let segment_end = segment_start + (1 << log_size) * RANGE_CHECK_MEMORY_CELLS as u32;
             let start_ptr = segment_range.start_ptr.value;
             let stop_ptr = segment_range.stop_ptr.value;
-            
+
             assert_eq!(start_ptr, segment_start);
             assert!(start_ptr <= stop_ptr);
             assert!(stop_ptr <= segment_end);
@@ -77,7 +95,12 @@ impl CairoFiatShamirHints {
         assert!(claim.builtins.mul_mod_builtin.is_none());
 
         let program = &claim.public_data.public_memory.program;
-        let n_builtins = claim.public_data.public_memory.public_segments.present_segments().len() as u32;
+        let n_builtins = claim
+            .public_data
+            .public_memory
+            .public_segments
+            .present_segments()
+            .len() as u32;
 
         // First instruction: add_app_immediate (n_builtins).
         assert_eq!(program[0].1, [0x7fff7fff, 0x4078001, 0, 0, 0, 0, 0, 0]); // add_ap_imm.
@@ -94,13 +117,6 @@ impl CairoFiatShamirHints {
         let final_fp = &claim.public_data.final_state.fp;
         let final_pc = &claim.public_data.final_state.pc;
         let final_ap = &claim.public_data.final_state.ap;
-
-        println!("initial_pc: {:?}", initial_pc);
-        println!("initial_ap: {:?}", initial_ap);
-        println!("initial_fp: {:?}", initial_fp);
-        println!("final_pc: {:?}", final_pc);
-        println!("final_ap: {:?}", final_ap);
-        println!("final_fp: {:?}", final_fp);
 
         assert_eq!(*initial_pc, BaseField::one());
         assert!(
@@ -120,13 +136,18 @@ impl CairoFiatShamirHints {
 
         // Large value IDs reside in [LARGE_MEMORY_VALUE_ID_BASE..P).
         // Check that IDs in (ID -> Value) do not overflow P.
-        let largest_id = claim.memory_id_to_value.big_log_sizes.iter().map(|log_size| 1 << log_size).sum::<u32>() - 1 + LARGE_MEMORY_VALUE_ID_BASE;
+        let largest_id = claim
+            .memory_id_to_value
+            .big_log_sizes
+            .iter()
+            .map(|log_size| 1 << log_size)
+            .sum::<u32>()
+            - 1
+            + LARGE_MEMORY_VALUE_ID_BASE;
         assert!(largest_id < PRIME);
     }
 
-    pub fn new(
-        proof: &CairoProof<Poseidon31MerkleHasher>,
-    ) -> Self {
+    pub fn new(proof: &CairoProof<Poseidon31MerkleHasher>) -> Self {
         let claim = &proof.claim;
         //let interaction_pow = proof.interaction_pow;
         //let interaction_claim = &proof.interaction_claim;
@@ -141,9 +162,11 @@ impl CairoFiatShamirHints {
         let pcs_config = stark_proof.config;
         pcs_config.mix_into(channel);
 
-        let commitment_scheme_verifier = &mut CommitmentSchemeVerifier::<Poseidon31MerkleChannel>::new(pcs_config);
+        let commitment_scheme_verifier =
+            &mut CommitmentSchemeVerifier::<Poseidon31MerkleChannel>::new(pcs_config);
 
-        let preprocessed_trace = PreProcessedTraceVariant::CanonicalWithoutPedersen.to_preprocessed_trace();
+        let preprocessed_trace =
+            PreProcessedTraceVariant::CanonicalWithoutPedersen.to_preprocessed_trace();
 
         let mut log_sizes = claim.log_sizes();
         log_sizes[PREPROCESSED_TRACE_IDX] = preprocessed_trace.log_sizes();
@@ -152,9 +175,11 @@ impl CairoFiatShamirHints {
 
         // Preproccessed trace.
         commitment_scheme_verifier.commit(stark_proof.commitments[0], &log_sizes[0], channel);
+
+        let mut channel_backup = channel.clone();
         {
             {
-                let program  = &claim.public_data.public_memory.program;
+                let program = &claim.public_data.public_memory.program;
                 let public_segments = &claim.public_data.public_memory.public_segments;
                 let output = &claim.public_data.public_memory.output;
                 let safe_call_ids = &claim.public_data.public_memory.safe_call_ids;
@@ -221,6 +246,11 @@ impl CairoFiatShamirHints {
             claim.verify_bitwise_xor_9.mix_into(channel);
         }
 
+        {
+            claim.mix_into(&mut channel_backup);
+            assert_eq!(channel_backup.digest(), channel.digest());
+        }
+
         commitment_scheme_verifier.commit(stark_proof.commitments[1], &log_sizes[1], channel);
 
         // Proof of work.
@@ -229,30 +259,65 @@ impl CairoFiatShamirHints {
         }
         channel.mix_u64(proof.interaction_pow);
         let interaction_elements = CairoInteractionElements::draw(channel);
-        println!("channel: {:?}", channel.digest());
 
-        println!("public memory entries count: {:?}", 
-            claim.public_data.public_memory
-            .get_entries(
-                claim.public_data.initial_state.pc.0,
-                claim.public_data.initial_state.ap.0,
-                claim.public_data.final_state.ap.0,
-            ).count()
+        println!(
+            "public memory entries count: {:?}",
+            claim
+                .public_data
+                .public_memory
+                .get_entries(
+                    claim.public_data.initial_state.pc.0,
+                    claim.public_data.initial_state.ap.0,
+                    claim.public_data.final_state.ap.0,
+                )
+                .count()
         );
 
         for (id, value) in claim.public_data.public_memory.output.iter() {
-            println!("id: {:?}, value: {:?}", id, value);
+            println!("output id: {:?}, value: {:?}", id, value);
         }
 
         assert!(proof.interaction_claim.opcodes.generic.is_empty());
         assert!(proof.interaction_claim.opcodes.jump.is_empty());
         assert!(proof.interaction_claim.opcodes.jump_double_deref.is_empty());
+        assert!(proof.interaction_claim.blake_context.claim.is_some());
+        assert!(proof.interaction_claim.builtins.add_mod_builtin.is_none());
+        assert!(proof.interaction_claim.builtins.bitwise_builtin.is_none());
+        assert!(proof.interaction_claim.builtins.mul_mod_builtin.is_none());
+        assert!(proof.interaction_claim.builtins.pedersen_builtin.is_none());
+        assert!(proof.interaction_claim.builtins.poseidon_builtin.is_none());
+        assert!(proof
+            .interaction_claim
+            .builtins
+            .range_check_96_builtin
+            .is_none());
+        assert!(proof
+            .interaction_claim
+            .builtins
+            .range_check_128_builtin
+            .is_some());
+        assert!(proof.interaction_claim.pedersen_context.claim.is_none());
+        assert!(proof.interaction_claim.poseidon_context.claim.is_none());
+        assert_eq!(
+            proof
+                .interaction_claim
+                .memory_id_to_value
+                .big_claimed_sums
+                .len(),
+            1
+        );
 
         // Verify lookup argument.
-        if lookup_sum(&claim, &interaction_elements, &proof.interaction_claim) != SecureField::zero() {
+        if lookup_sum(&claim, &interaction_elements, &proof.interaction_claim)
+            != SecureField::zero()
+        {
             panic!("Invalid logup sum");
         }
         proof.interaction_claim.mix_into(channel);
+        println!(
+            "channel after mixing interaction claim: {:?}",
+            channel.digest()
+        );
         commitment_scheme_verifier.commit(stark_proof.commitments[2], &log_sizes[2], channel);
 
         let component_generator = CairoComponents::new(
@@ -278,8 +343,8 @@ impl CairoFiatShamirHints {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cairo_air::utils::{deserialize_proof_from_file, ProofFormat};
     use std::path::PathBuf;
-    use cairo_air::utils::{ProofFormat, deserialize_proof_from_file};
 
     #[test]
     fn test_read_recursive_proof() {
@@ -289,7 +354,7 @@ mod tests {
             .unwrap()
             .join("test_data")
             .join("recursive_proof.bin.bz");
-            
+
         let proof = deserialize_proof_from_file(&data_path, ProofFormat::Binary).unwrap();
         let _ = CairoFiatShamirHints::new(&proof);
     }

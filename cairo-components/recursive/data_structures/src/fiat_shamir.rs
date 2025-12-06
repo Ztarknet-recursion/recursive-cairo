@@ -1,12 +1,24 @@
-use cairo_air::{air::{MemorySection, MemorySmallValue, PublicData, PublicMemory, PublicSegmentRanges, SegmentRange}, blake::air::BlakeContextClaim, builtins_air::BuiltinsClaim, components::memory_id_to_big, opcodes_air::OpcodeClaim};
+use cairo_air::{
+    air::{
+        MemorySection, MemorySmallValue, PublicData, PublicMemory, PublicSegmentRanges,
+        SegmentRange,
+    },
+    blake::air::BlakeContextClaim,
+    builtins_air::BuiltinsClaim,
+    components::memory_id_to_big,
+    opcodes_air::OpcodeClaim,
+};
 use circle_plonk_dsl_channel::ChannelVar;
-use circle_plonk_dsl_constraint_system::{ConstraintSystemRef, var::{AllocVar, AllocationMode, Var}};
+use circle_plonk_dsl_constraint_system::{
+    var::{AllocVar, AllocationMode, Var},
+    ConstraintSystemRef,
+};
 use circle_plonk_dsl_fields::{M31Var, QM31Var};
 use stwo::core::fields::m31::M31;
 use stwo_cairo_common::prover_types::cpu::CasmState;
 
 #[derive(Debug, Clone)]
-pub struct ChannelU64Var (pub [M31Var; 3]);
+pub struct ChannelU64Var(pub [M31Var; 3]);
 
 impl Var for ChannelU64Var {
     type Value = u64;
@@ -18,11 +30,8 @@ impl Var for ChannelU64Var {
 
 impl AllocVar for ChannelU64Var {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let value = [M31Var::new_variables(
-                cs,
-                &M31::from((value & ((1 << 22) - 1)) as u32),
-                mode,
-            ),
+        let value = [
+            M31Var::new_variables(cs, &M31::from((value & ((1 << 22) - 1)) as u32), mode),
             M31Var::new_variables(
                 cs,
                 &M31::from(((value >> 22) & ((1 << 21) - 1)) as u32),
@@ -65,9 +74,8 @@ impl ChannelU64Var {
     }
 }
 
-
 #[derive(Debug, Clone)]
-pub struct ChannelU22Var (pub M31Var);
+pub struct ChannelU22Var(pub M31Var);
 
 impl Var for ChannelU22Var {
     type Value = u32;
@@ -79,10 +87,7 @@ impl Var for ChannelU22Var {
 
 impl AllocVar for ChannelU22Var {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let value = M31Var::new_variables(
-            cs,
-            &M31::from(*value as u32),
-            mode,);
+        let value = M31Var::new_variables(cs, &M31::from(*value as u32), mode);
         Self(value)
     }
 }
@@ -136,17 +141,31 @@ impl AllocVar for PublicSegmentRangesVar {
         let output = SegmentRangeVar::new_variables(cs, &value.output, mode);
 
         let pedersen = SegmentRangeVar::new_variables(cs, &value.pedersen.as_ref().unwrap(), mode);
-        let range_check_128 = SegmentRangeVar::new_variables(cs, &value.range_check_128.as_ref().unwrap(), mode);
+        let range_check_128 =
+            SegmentRangeVar::new_variables(cs, &value.range_check_128.as_ref().unwrap(), mode);
         let ecdsa = SegmentRangeVar::new_variables(cs, &value.ecdsa.as_ref().unwrap(), mode);
         let bitwise = SegmentRangeVar::new_variables(cs, &value.bitwise.as_ref().unwrap(), mode);
         let ec_op = SegmentRangeVar::new_variables(cs, &value.ec_op.as_ref().unwrap(), mode);
         let keccak = SegmentRangeVar::new_variables(cs, &value.keccak.as_ref().unwrap(), mode);
         let poseidon = SegmentRangeVar::new_variables(cs, &value.poseidon.as_ref().unwrap(), mode);
-        let range_check_96 = SegmentRangeVar::new_variables(cs, &value.range_check_96.as_ref().unwrap(), mode);
+        let range_check_96 =
+            SegmentRangeVar::new_variables(cs, &value.range_check_96.as_ref().unwrap(), mode);
         let add_mod = SegmentRangeVar::new_variables(cs, &value.add_mod.as_ref().unwrap(), mode);
         let mul_mod = SegmentRangeVar::new_variables(cs, &value.mul_mod.as_ref().unwrap(), mode);
-        
-        Self { output, pedersen, range_check_128, ecdsa, bitwise, ec_op, keccak, poseidon, range_check_96, add_mod, mul_mod }
+
+        Self {
+            output,
+            pedersen,
+            range_check_128,
+            ecdsa,
+            bitwise,
+            ec_op,
+            keccak,
+            poseidon,
+            range_check_96,
+            add_mod,
+            mul_mod,
+        }
     }
 }
 
@@ -184,7 +203,10 @@ impl AllocVar for SegmentRangeVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let start_ptr = MemorySmallValueVar::new_variables(cs, &value.start_ptr, mode);
         let stop_ptr = MemorySmallValueVar::new_variables(cs, &value.stop_ptr, mode);
-        Self { start_ptr, stop_ptr }
+        Self {
+            start_ptr,
+            stop_ptr,
+        }
     }
 }
 
@@ -255,11 +277,7 @@ impl AllocVar for CasmStateVar {
         let ap = ChannelU64Var::new_variables(cs, &(value.ap.0 as u64), mode);
         let fp = ChannelU64Var::new_variables(cs, &(value.fp.0 as u64), mode);
 
-        Self {
-            pc,
-            ap,
-            fp,
-        }
+        Self { pc, ap, fp }
     }
 }
 
@@ -325,10 +343,17 @@ impl Var for PublicMemoryVar {
 
 impl AllocVar for PublicMemoryVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let public_segments = PublicSegmentRangesVar::new_variables(cs, &value.public_segments, mode);
+        let public_segments =
+            PublicSegmentRangesVar::new_variables(cs, &value.public_segments, mode);
         let output = MemorySectionVar::new_variables(cs, &value.output, mode);
-        let safe_call_ids = value.safe_call_ids.map(|id| ChannelU64Var::new_variables(cs, &(id as u64), mode));
-        Self { public_segments, output, safe_call_ids }
+        let safe_call_ids = value
+            .safe_call_ids
+            .map(|id| ChannelU64Var::new_variables(cs, &(id as u64), mode));
+        Self {
+            public_segments,
+            output,
+            safe_call_ids,
+        }
     }
 }
 
@@ -336,7 +361,9 @@ impl PublicMemoryVar {
     pub fn mix_into(&self, channel: &mut ChannelVar) {
         self.public_segments.mix_into(channel);
         self.output.mix_into(channel);
-        self.safe_call_ids.iter().for_each(|id| id.mix_into(channel));
+        self.safe_call_ids
+            .iter()
+            .for_each(|id| id.mix_into(channel));
     }
 }
 
@@ -356,17 +383,25 @@ impl Var for MemorySectionVar {
 
 impl AllocVar for MemorySectionVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let ids = value.iter().map(|(id, _)| ChannelU64Var::new_variables(cs, &(*id as u64), mode)).collect();
-        let values = value.iter().map(|(_, value)| [
-            ChannelU64Var::new_variables(cs, &(value[0] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[1] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[2] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[3] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[4] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[5] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[6] as u64), mode),
-            ChannelU64Var::new_variables(cs, &(value[7] as u64), mode),
-        ]).collect();
+        let ids = value
+            .iter()
+            .map(|(id, _)| ChannelU64Var::new_variables(cs, &(*id as u64), mode))
+            .collect();
+        let values = value
+            .iter()
+            .map(|(_, value)| {
+                [
+                    ChannelU64Var::new_variables(cs, &(value[0] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[1] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[2] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[3] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[4] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[5] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[6] as u64), mode),
+                    ChannelU64Var::new_variables(cs, &(value[7] as u64), mode),
+                ]
+            })
+            .collect();
         Self { ids, values }
     }
 }
@@ -374,7 +409,9 @@ impl AllocVar for MemorySectionVar {
 impl MemorySectionVar {
     pub fn mix_into(&self, channel: &mut ChannelVar) {
         self.ids.iter().for_each(|id| id.mix_into(channel));
-        self.values.iter().for_each(|value| value.iter().for_each(|v| v.mix_into(channel)));
+        self.values
+            .iter()
+            .for_each(|value| value.iter().for_each(|v| v.mix_into(channel)));
     }
 }
 
@@ -412,24 +449,53 @@ impl Var for OpcodeClaimVar {
 impl AllocVar for OpcodeClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let add = ChannelU22Var::new_variables(cs, &(value.add[0].log_size as u32), mode);
-        let add_small = ChannelU22Var::new_variables(cs, &(value.add_small[0].log_size as u32), mode);
+        let add_small =
+            ChannelU22Var::new_variables(cs, &(value.add_small[0].log_size as u32), mode);
         let add_ap = ChannelU22Var::new_variables(cs, &(value.add_ap[0].log_size as u32), mode);
-        let assert_eq = ChannelU22Var::new_variables(cs, &(value.assert_eq[0].log_size as u32), mode);
-        let assert_eq_imm = ChannelU22Var::new_variables(cs, &(value.assert_eq_imm[0].log_size as u32), mode);
-        let assert_eq_double_deref = ChannelU22Var::new_variables(cs, &(value.assert_eq_double_deref[0].log_size as u32), mode);
+        let assert_eq =
+            ChannelU22Var::new_variables(cs, &(value.assert_eq[0].log_size as u32), mode);
+        let assert_eq_imm =
+            ChannelU22Var::new_variables(cs, &(value.assert_eq_imm[0].log_size as u32), mode);
+        let assert_eq_double_deref = ChannelU22Var::new_variables(
+            cs,
+            &(value.assert_eq_double_deref[0].log_size as u32),
+            mode,
+        );
         let blake = ChannelU22Var::new_variables(cs, &(value.blake[0].log_size as u32), mode);
         let call = ChannelU22Var::new_variables(cs, &(value.call[0].log_size as u32), mode);
-        let call_rel_imm = ChannelU22Var::new_variables(cs, &(value.call_rel_imm[0].log_size as u32), mode);
+        let call_rel_imm =
+            ChannelU22Var::new_variables(cs, &(value.call_rel_imm[0].log_size as u32), mode);
         let jnz = ChannelU22Var::new_variables(cs, &(value.jnz[0].log_size as u32), mode);
-        let jnz_taken = ChannelU22Var::new_variables(cs, &(value.jnz_taken[0].log_size as u32), mode);
+        let jnz_taken =
+            ChannelU22Var::new_variables(cs, &(value.jnz_taken[0].log_size as u32), mode);
         let jump_rel = ChannelU22Var::new_variables(cs, &(value.jump_rel[0].log_size as u32), mode);
-        let jump_rel_imm = ChannelU22Var::new_variables(cs, &(value.jump_rel_imm[0].log_size as u32), mode);
+        let jump_rel_imm =
+            ChannelU22Var::new_variables(cs, &(value.jump_rel_imm[0].log_size as u32), mode);
         let mul = ChannelU22Var::new_variables(cs, &(value.mul[0].log_size as u32), mode);
-        let mul_small = ChannelU22Var::new_variables(cs, &(value.mul_small[0].log_size as u32), mode);
+        let mul_small =
+            ChannelU22Var::new_variables(cs, &(value.mul_small[0].log_size as u32), mode);
         let qm31 = ChannelU22Var::new_variables(cs, &(value.qm31[0].log_size as u32), mode);
         let ret = ChannelU22Var::new_variables(cs, &(value.ret[0].log_size as u32), mode);
 
-        Self { add, add_small, add_ap, assert_eq, assert_eq_imm, assert_eq_double_deref, blake, call, call_rel_imm, jnz, jnz_taken, jump_rel, jump_rel_imm, mul, mul_small, qm31, ret }
+        Self {
+            add,
+            add_small,
+            add_ap,
+            assert_eq,
+            assert_eq_imm,
+            assert_eq_double_deref,
+            blake,
+            call,
+            call_rel_imm,
+            jnz,
+            jnz_taken,
+            jump_rel,
+            jump_rel_imm,
+            mul,
+            mul_small,
+            qm31,
+            ret,
+        }
     }
 }
 
@@ -476,7 +542,7 @@ impl OpcodeClaimVar {
 }
 
 #[derive(Debug, Clone)]
-pub struct BlakeContextClaimVar { 
+pub struct BlakeContextClaimVar {
     pub blake_round: ChannelU22Var,
     pub blake_g: ChannelU22Var,
     pub triple_xor_32: ChannelU22Var,
@@ -494,10 +560,16 @@ impl AllocVar for BlakeContextClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let value = value.claim.as_ref().unwrap();
 
-        let blake_round = ChannelU22Var::new_variables(cs, &(value.blake_round.log_size as u32), mode);
+        let blake_round =
+            ChannelU22Var::new_variables(cs, &(value.blake_round.log_size as u32), mode);
         let blake_g = ChannelU22Var::new_variables(cs, &(value.blake_g.log_size as u32), mode);
-        let triple_xor_32 = ChannelU22Var::new_variables(cs, &(value.triple_xor_32.log_size as u32), mode);
-        Self { blake_round, blake_g, triple_xor_32 }
+        let triple_xor_32 =
+            ChannelU22Var::new_variables(cs, &(value.triple_xor_32.log_size as u32), mode);
+        Self {
+            blake_round,
+            blake_g,
+            triple_xor_32,
+        }
     }
 }
 
@@ -525,9 +597,24 @@ impl Var for BuiltinsClaimVar {
 
 impl AllocVar for BuiltinsClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let range_check_128_builtin_log_size = ChannelU22Var::new_variables(cs, &(value.range_check_128_builtin.as_ref().unwrap().log_size as u32), mode);
-        let range_check_builtin_segment_start = ChannelU64Var::new_variables(cs, &(value.range_check_128_builtin.as_ref().unwrap().range_check_builtin_segment_start as u64), mode);
-        Self { range_check_128_builtin_log_size, range_check_builtin_segment_start }
+        let range_check_128_builtin_log_size = ChannelU22Var::new_variables(
+            cs,
+            &(value.range_check_128_builtin.as_ref().unwrap().log_size as u32),
+            mode,
+        );
+        let range_check_builtin_segment_start = ChannelU64Var::new_variables(
+            cs,
+            &(value
+                .range_check_128_builtin
+                .as_ref()
+                .unwrap()
+                .range_check_builtin_segment_start as u64),
+            mode,
+        );
+        Self {
+            range_check_128_builtin_log_size,
+            range_check_builtin_segment_start,
+        }
     }
 }
 
@@ -556,7 +643,10 @@ impl AllocVar for MemoryIdToBigClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let big_log_size = ChannelU22Var::new_variables(cs, &(value.big_log_sizes[0] as u32), mode);
         let small_log_size = ChannelU22Var::new_variables(cs, &(value.small_log_size as u32), mode);
-        Self { big_log_size, small_log_size }
+        Self {
+            big_log_size,
+            small_log_size,
+        }
     }
 }
 

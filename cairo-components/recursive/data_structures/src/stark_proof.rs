@@ -1,5 +1,8 @@
 use circle_plonk_dsl_channel::HashVar;
-use circle_plonk_dsl_constraint_system::{ConstraintSystemRef, var::{AllocVar, AllocationMode, Var}};
+use circle_plonk_dsl_constraint_system::{
+    var::{AllocVar, AllocationMode, Var},
+    ConstraintSystemRef,
+};
 use stwo::core::{proof::StarkProof, vcs::poseidon31_merkle::Poseidon31MerkleHasher};
 
 #[derive(Debug, Clone)]

@@ -24,7 +24,9 @@ pub struct ConstraintSystemRef(pub(crate) Rc<RefCell<PlonkWithPoseidonConstraint
 
 impl ConstraintSystemRef {
     pub fn new_plonk_with_poseidon_ref() -> Self {
-        Self(Rc::new(RefCell::new(PlonkWithPoseidonConstraintSystem::new())))
+        Self(Rc::new(RefCell::new(
+            PlonkWithPoseidonConstraintSystem::new(),
+        )))
     }
 
     pub fn get_value(&self, idx: usize) -> QM31 {
@@ -92,7 +94,13 @@ impl ConstraintSystemRef {
         entry_4: PoseidonEntry,
         swap_option: SwapOption,
     ) {
-        self.0.borrow_mut().invoke_poseidon_accelerator(entry_1, entry_2, entry_3, entry_4, swap_option);
+        self.0.borrow_mut().invoke_poseidon_accelerator(
+            entry_1,
+            entry_2,
+            entry_3,
+            entry_4,
+            swap_option,
+        );
     }
 
     pub fn pad(&self) {

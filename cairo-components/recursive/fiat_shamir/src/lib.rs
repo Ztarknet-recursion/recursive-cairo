@@ -1,21 +1,20 @@
-use cairo_plonk_dsl_data_structures::{CairoClaimVar, CairoProofVar, lookup::CairoInteractionElementsVar};
+use cairo_air::verifier::INTERACTION_POW_BITS;
+use cairo_plonk_dsl_data_structures::{
+    lookup::CairoInteractionElementsVar, CairoClaimVar, CairoProofVar,
+};
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
+use circle_plonk_dsl_bits::BitsVar;
 use circle_plonk_dsl_channel::ChannelVar;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
-use circle_plonk_dsl_poseidon31::Poseidon2HalfVar;
-use circle_plonk_dsl_bits::BitsVar;
-use cairo_air::verifier::INTERACTION_POW_BITS;
 use circle_plonk_dsl_fields::M31Var;
+use circle_plonk_dsl_poseidon31::Poseidon2HalfVar;
 
 pub struct CairoFiatShamirResults {}
 
 impl CairoFiatShamirResults {
-    pub fn compute(
-        fiat_shamir_hints: &CairoFiatShamirHints,
-        proof: &CairoProofVar,
-    ) -> Self {
+    pub fn compute(fiat_shamir_hints: &CairoFiatShamirHints, proof: &CairoProofVar) -> Self {
         let cs = proof.cs();
-        
+
         let mut channel = ChannelVar::default(&cs);
         channel.digest = Poseidon2HalfVar::new_constant(&cs, &fiat_shamir_hints.initial_channel);
 
@@ -35,9 +34,17 @@ impl CairoFiatShamirResults {
         lower_bits.equalverify(&M31Var::zero(&cs));
 
         let _interaction_elements = CairoInteractionElementsVar::draw(&mut channel);
-        println!("channel n2: {:?}", channel.digest.value());        
+        proof.interaction_claim.mix_into(&mut channel);
+        println!(
+            "channel after mixing interaction claim: {:?}",
+            channel.digest.value()
+        );
 
-        println!("size of constraint system: {:?} {:?}", cs.num_plonk_rows(), cs.num_poseidon_invocations());
+        println!(
+            "size of constraint system so far: {:?} {:?}",
+            cs.num_plonk_rows(),
+            cs.num_poseidon_invocations()
+        );
 
         Self {}
     }
@@ -45,17 +52,57 @@ impl CairoFiatShamirResults {
     pub fn check_claim(claim: &CairoClaimVar) {
         let public_data = &claim.public_data;
 
-        public_data.public_memory.public_segments.range_check_128.enforce_is_not_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .range_check_128
+            .enforce_is_not_empty();
 
-        public_data.public_memory.public_segments.pedersen.enforce_is_empty();
-        public_data.public_memory.public_segments.ecdsa.enforce_is_empty();
-        public_data.public_memory.public_segments.bitwise.enforce_is_empty();
-        public_data.public_memory.public_segments.ec_op.enforce_is_empty();
-        public_data.public_memory.public_segments.keccak.enforce_is_empty();
-        public_data.public_memory.public_segments.poseidon.enforce_is_empty();
-        public_data.public_memory.public_segments.range_check_96.enforce_is_empty();
-        public_data.public_memory.public_segments.add_mod.enforce_is_empty();
-        public_data.public_memory.public_segments.mul_mod.enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .pedersen
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .ecdsa
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .bitwise
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .ec_op
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .keccak
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .poseidon
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .range_check_96
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .add_mod
+            .enforce_is_empty();
+        public_data
+            .public_memory
+            .public_segments
+            .mul_mod
+            .enforce_is_empty();
     }
 
     /*pub fn lookup_sum(
@@ -66,16 +113,16 @@ impl CairoFiatShamirResults {
         let cs = claim.cs();
         let mut sum = QM31Var::zero(&cs);
 
-        
+
     }*/
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use circle_plonk_dsl_constraint_system::{ConstraintSystemRef, var::AllocVar};
-    use cairo_air::utils::{ProofFormat, deserialize_proof_from_file};
     use super::*;
+    use cairo_air::utils::{deserialize_proof_from_file, ProofFormat};
+    use circle_plonk_dsl_constraint_system::{var::AllocVar, ConstraintSystemRef};
+    use std::path::PathBuf;
 
     #[test]
     fn test_fiat_shamir() {
@@ -83,11 +130,13 @@ mod tests {
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let data_path = PathBuf::from(manifest_dir)
-            .parent().unwrap()
-            .parent().unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
             .join("test_data")
             .join("recursive_proof.bin.bz");
-            
+
         let proof = deserialize_proof_from_file(&data_path, ProofFormat::Binary).unwrap();
 
         let fiat_shamir_hints = CairoFiatShamirHints::new(&proof);

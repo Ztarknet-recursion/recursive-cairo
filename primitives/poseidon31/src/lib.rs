@@ -140,22 +140,12 @@ impl Poseidon2HalfVar {
         [
             QM31Var {
                 cs: cs.clone(),
-                value: QM31::from_m31(
-                    self.value[0],
-                    self.value[1],
-                    self.value[2],
-                    self.value[3],
-                ),
+                value: QM31::from_m31(self.value[0], self.value[1], self.value[2], self.value[3]),
                 variable: self.left_variable,
             },
             QM31Var {
                 cs: cs.clone(),
-                value: QM31::from_m31(
-                    self.value[4],
-                    self.value[5],
-                    self.value[6],
-                    self.value[7],
-                ),
+                value: QM31::from_m31(self.value[4], self.value[5], self.value[6], self.value[7]),
                 variable: self.right_variable,
             },
         ]
@@ -230,16 +220,12 @@ impl Poseidon2HalfVar {
                 sel_value: 0,
             }
         } else {
-            let out_left = QM31Var::new_witness(
-                &cs,
-                &QM31::from_m31(state[0], state[1], state[2], state[3]),
-            );
+            let out_left =
+                QM31Var::new_witness(&cs, &QM31::from_m31(state[0], state[1], state[2], state[3]));
             let left_variable = out_left.variable;
 
-            let out_right = QM31Var::new_witness(
-                &cs,
-                &QM31::from_m31(state[4], state[5], state[6], state[7]),
-            );
+            let out_right =
+                QM31Var::new_witness(&cs, &QM31::from_m31(state[4], state[5], state[6], state[7]));
             let right_variable = out_right.variable;
 
             let half_state_variable = cs.assemble_poseidon_gate(left_variable, right_variable);

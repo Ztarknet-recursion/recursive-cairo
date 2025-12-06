@@ -1,5 +1,5 @@
 use circle_plonk_dsl_channel::ChannelVar;
-use circle_plonk_dsl_constraint_system::{ConstraintSystemRef, var::Var};
+use circle_plonk_dsl_constraint_system::{var::Var, ConstraintSystemRef};
 use circle_plonk_dsl_fields::QM31Var;
 use stwo_constraint_framework::logup::LookupElements;
 
@@ -153,7 +153,7 @@ impl CairoInteractionElementsVar {
             triple_xor_32: TripleXor32Var::draw(channel),
             poseidon_aggregator: PoseidonAggregatorVar::draw(channel),
             poseidon_3_partial_rounds_chain: Poseidon3PartialRoundsChainVar::draw(channel),
-               poseidon_full_round_chain: PoseidonFullRoundChainVar::draw(channel),
+            poseidon_full_round_chain: PoseidonFullRoundChainVar::draw(channel),
             cube_252: Cube252Var::draw(channel),
             poseidon_round_keys: PoseidonRoundKeysVar::draw(channel),
             range_check_252_width_27: RangeCheck252Width27Var::draw(channel),
