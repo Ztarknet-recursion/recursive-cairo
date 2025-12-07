@@ -19,6 +19,7 @@ pub mod fiat_shamir;
 pub mod interaction_claim;
 pub mod lookup;
 pub mod stark_proof;
+pub mod mask;
 
 #[derive(Debug, Clone)]
 pub struct CairoProofVar {

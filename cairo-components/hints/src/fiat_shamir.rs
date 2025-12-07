@@ -7,10 +7,10 @@ use itertools::Itertools;
 use num_traits::{One, Zero};
 use std::collections::HashMap;
 use stwo::core::{
-    air::Components, channel::{Channel, Poseidon31Channel}, circle::CirclePoint, fields::{
+    ColumnVec, air::Components, channel::{Channel, Poseidon31Channel}, circle::CirclePoint, fields::{
         m31::{BaseField, M31},
         qm31::{SECURE_EXTENSION_DEGREE, SecureField},
-    }, pcs::{CommitmentSchemeVerifier, PcsConfig}, vcs::{
+    }, pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec}, vcs::{
         poseidon31_hash::Poseidon31Hash,
         poseidon31_merkle::{Poseidon31MerkleChannel, Poseidon31MerkleHasher},
     }
@@ -30,6 +30,9 @@ pub struct CairoFiatShamirHints {
     pub trace_commitment: Poseidon31Hash,
     pub interaction_commitment: Poseidon31Hash,
     pub composition_commitment: Poseidon31Hash,
+
+    pub oods_point: CirclePoint<SecureField>,
+    pub sample_points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
 }
 
 impl CairoFiatShamirHints {
@@ -348,6 +351,13 @@ impl CairoFiatShamirHints {
         );
         println!("oods point: {:?}", oods_point);
 
+        // Get mask sample points relative to oods point.
+        let mut sample_points = components.mask_points(oods_point);
+        // Add the composition polynomial mask points.
+        sample_points.push(vec![vec![oods_point]; 2 * SECURE_EXTENSION_DEGREE]);
+
+        let _sample_points_by_column = sample_points.as_cols_ref().flatten();
+
         Self {
             initial_channel,
             pcs_config,
@@ -356,6 +366,9 @@ impl CairoFiatShamirHints {
             trace_commitment: stark_proof.commitments[1].clone(),
             interaction_commitment: stark_proof.commitments[2].clone(),
             composition_commitment: stark_proof.commitments[3].clone(),
+
+            oods_point,
+            sample_points,
         }
     }
 }
