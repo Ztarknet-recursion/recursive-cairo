@@ -3,7 +3,8 @@ use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
-use stwo::core::{proof::StarkProof, vcs::poseidon31_merkle::Poseidon31MerkleHasher};
+use circle_plonk_dsl_fields::QM31Var;
+use stwo::core::{ColumnVec, pcs::TreeVec, proof::StarkProof, vcs::poseidon31_merkle::Poseidon31MerkleHasher};
 
 #[derive(Debug, Clone)]
 pub struct StarkProofVar {
@@ -12,6 +13,8 @@ pub struct StarkProofVar {
     pub trace_commitment: HashVar,
     pub interaction_commitment: HashVar,
     pub composition_commitment: HashVar,
+
+    pub sampled_values: TreeVec<ColumnVec<Vec<QM31Var>>>,
 }
 
 impl Var for StarkProofVar {
@@ -28,11 +31,25 @@ impl AllocVar for StarkProofVar {
         let interaction_commitment = HashVar::new_variables(cs, &value.commitments[2].0, mode);
         let composition_commitment = HashVar::new_variables(cs, &value.commitments[3].0, mode);
 
+        let mut sampled_values = TreeVec::new(vec![]);
+        for round in value.sampled_values.iter() {
+            let mut round_res = ColumnVec::new();
+            for column in round.iter() {
+                let mut column_res = Vec::with_capacity(column.len());
+                for eval in column.iter() {
+                    column_res.push(QM31Var::new_variables(cs, eval, mode));
+                }
+                round_res.push(column_res);
+            }
+            sampled_values.push(round_res);
+        }
+
         Self {
             cs: cs.clone(),
             trace_commitment,
             interaction_commitment,
             composition_commitment,
+            sampled_values,
         }
     }
 }

@@ -7,16 +7,13 @@ use itertools::Itertools;
 use num_traits::{One, Zero};
 use std::collections::HashMap;
 use stwo::core::{
-    channel::{Channel, Poseidon31Channel},
-    fields::{
+    air::Components, channel::{Channel, Poseidon31Channel}, circle::CirclePoint, fields::{
         m31::{BaseField, M31},
-        qm31::SecureField,
-    },
-    pcs::{CommitmentSchemeVerifier, PcsConfig},
-    vcs::{
+        qm31::{SECURE_EXTENSION_DEGREE, SecureField},
+    }, pcs::{CommitmentSchemeVerifier, PcsConfig}, vcs::{
         poseidon31_hash::Poseidon31Hash,
         poseidon31_merkle::{Poseidon31MerkleChannel, Poseidon31MerkleHasher},
-    },
+    }
 };
 use stwo_cairo_common::{
     builtins::RANGE_CHECK_MEMORY_CELLS, memory::LARGE_MEMORY_VALUE_ID_BASE,
@@ -314,10 +311,6 @@ impl CairoFiatShamirHints {
             panic!("Invalid logup sum");
         }
         proof.interaction_claim.mix_into(channel);
-        println!(
-            "channel after mixing interaction claim: {:?}",
-            channel.digest()
-        );
         commitment_scheme_verifier.commit(stark_proof.commitments[2], &log_sizes[2], channel);
 
         let component_generator = CairoComponents::new(
@@ -326,7 +319,34 @@ impl CairoFiatShamirHints {
             &proof.interaction_claim,
             &preprocessed_trace.ids(),
         );
-        let _components = component_generator.components();
+        let components = component_generator.components();
+
+        let n_preprocessed_columns = commitment_scheme_verifier.trees[PREPROCESSED_TRACE_IDX]
+            .column_log_sizes
+            .len();
+
+        let components = Components {
+            components: components.to_vec(),
+            n_preprocessed_columns,
+        };
+        let composition_log_size = components.composition_log_degree_bound();
+        let _random_coeff = channel.draw_secure_felt();
+
+        // Read composition polynomial commitment.
+        commitment_scheme_verifier.commit(
+            *proof.stark_proof.commitments.last().unwrap(),
+            &[composition_log_size - 1; 2 * SECURE_EXTENSION_DEGREE],
+            channel,
+        );
+
+        // Draw OODS point.
+        let oods_point = CirclePoint::<SecureField>::get_random_point(channel);
+
+        println!(
+            "channel after drawing OODS point: {:?}",
+            channel.digest()
+        );
+        println!("oods point: {:?}", oods_point);
 
         Self {
             initial_channel,

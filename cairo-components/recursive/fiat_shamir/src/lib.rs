@@ -5,6 +5,7 @@ use cairo_plonk_dsl_data_structures::{
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_bits::BitsVar;
 use circle_plonk_dsl_channel::ChannelVar;
+use circle_plonk_dsl_circle::CirclePointQM31Var;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_fields::M31Var;
 use circle_plonk_dsl_poseidon31::Poseidon2HalfVar;
@@ -35,10 +36,18 @@ impl CairoFiatShamirResults {
 
         let _interaction_elements = CairoInteractionElementsVar::draw(&mut channel);
         proof.interaction_claim.mix_into(&mut channel);
+
+        channel.mix_root(&proof.stark_proof.interaction_commitment);
+        let _random_coeff = channel.draw_felts()[0].clone();
+        channel.mix_root(&proof.stark_proof.composition_commitment);
+
+        // Draw OODS point.
+        let _oods_point = CirclePointQM31Var::from_channel(&mut channel);
         println!(
-            "channel after mixing interaction claim: {:?}",
+            "channel after drawing OODS point: {:?}",
             channel.digest.value()
         );
+        println!("oods point: {:?}", _oods_point.value());
 
         println!(
             "size of constraint system so far: {:?} {:?}",
