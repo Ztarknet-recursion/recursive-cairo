@@ -5,6 +5,26 @@
 ### check_claim in cairo-components/recursive/fiat_shamir/src/lib.rs
 The `check_claim` implementation is not complete and needs to be finished.
 
+#### Remaining items in check_claim:
+- [ ] Implement `accumulate_relation_uses` in the circuit for security
+  - Currently commented out (lines 127-133)
+  - Need to accumulate relation uses from the claim and verify each count < PRIME
+  - This is a security check to ensure relation counts don't overflow
+- [ ] Implement `largest_id` check
+  - Currently commented out (lines 134-143)
+  - Need to verify that the largest memory ID doesn't overflow PRIME
+  - Formula: `sum(big_log_sizes.map(|log_size| 1 << log_size)) - 1 + LARGE_MEMORY_VALUE_ID_BASE < PRIME`
+
+## Security - Circuit Implementation
+
+### accumulate_relation_uses in circuit
+- [ ] **CRITICAL**: Implement `accumulate_relation_uses` verification in the circuit (cairo-components/recursive/fiat_shamir/src/lib.rs)
+  - Currently only implemented in hints (cairo-components/hints/src/fiat_shamir.rs, line 132)
+  - Must be implemented in the recursive circuit version for security
+  - Need to accumulate all relation uses from the claim and verify that each count < PRIME
+  - This prevents relation count overflow attacks
+  - Reference implementation exists in hints version but needs to be adapted for circuit constraints
+
 ### Lookup sum for public memory
 To finish the lookup sum for public memory, need to start with a function that calculates the sum and sum them up, starting with the program, and then the rest.
 

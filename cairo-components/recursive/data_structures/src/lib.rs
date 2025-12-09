@@ -18,8 +18,8 @@ use crate::{
 pub mod fiat_shamir;
 pub mod interaction_claim;
 pub mod lookup;
-pub mod stark_proof;
 pub mod mask;
+pub mod stark_proof;
 
 #[derive(Debug, Clone)]
 pub struct CairoProofVar {

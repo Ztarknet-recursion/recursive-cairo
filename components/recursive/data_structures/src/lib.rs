@@ -332,16 +332,14 @@ impl SinglePathMerkleProofVar {
                 cur_hash = Poseidon31MerkleHasherVar::hash_tree_with_column_hash_with_swap(
                     &mut cur_hash,
                     &mut self.sibling_hashes[i],
-                    query.value[i],
-                    query.variables[i],
+                    &query.0[i],
                     &mut column_hash,
                 );
             } else {
                 cur_hash = Poseidon31MerkleHasherVar::hash_tree_with_swap(
                     &mut cur_hash,
                     &mut self.sibling_hashes[i],
-                    query.value[i],
-                    query.variables[i],
+                    &query.0[i],
                 );
             }
         }
@@ -424,8 +422,7 @@ impl SinglePairMerkleProofVar {
                 self_hash = Poseidon31MerkleHasherVar::hash_tree_with_swap(
                     &mut self_hash,
                     &mut sibling_hash,
-                    query.value[i],
-                    query.variables[i],
+                    &query.0[i],
                 );
                 if i != self.value.depth - 1 {
                     sibling_hash = self.sibling_hashes[i].clone();
@@ -445,8 +442,7 @@ impl SinglePairMerkleProofVar {
                 self_hash = Poseidon31MerkleHasherVar::hash_tree_with_column_hash_with_swap(
                     &mut self_hash,
                     &mut sibling_hash,
-                    query.value[i],
-                    query.variables[i],
+                    &query.0[i],
                     &mut self_column_hash,
                 );
                 sibling_hash = Poseidon31MerkleHasherVar::combine_hash_tree_with_column(

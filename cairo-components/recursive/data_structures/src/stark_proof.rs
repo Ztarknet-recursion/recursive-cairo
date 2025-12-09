@@ -4,7 +4,9 @@ use circle_plonk_dsl_constraint_system::{
     ConstraintSystemRef,
 };
 use circle_plonk_dsl_fields::QM31Var;
-use stwo::core::{ColumnVec, pcs::TreeVec, proof::StarkProof, vcs::poseidon31_merkle::Poseidon31MerkleHasher};
+use stwo::core::{
+    pcs::TreeVec, proof::StarkProof, vcs::poseidon31_merkle::Poseidon31MerkleHasher, ColumnVec,
+};
 
 #[derive(Debug, Clone)]
 pub struct StarkProofVar {

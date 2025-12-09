@@ -1,14 +1,15 @@
 use cairo_air::verifier::INTERACTION_POW_BITS;
 use cairo_plonk_dsl_data_structures::{
-    lookup::CairoInteractionElementsVar, CairoClaimVar, CairoProofVar,
+    fiat_shamir::ChannelU64Var, lookup::CairoInteractionElementsVar, CairoClaimVar, CairoProofVar,
 };
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
-use circle_plonk_dsl_bits::BitsVar;
+use circle_plonk_dsl_bits::{BitVar, BitsVar};
 use circle_plonk_dsl_channel::ChannelVar;
 use circle_plonk_dsl_circle::CirclePointQM31Var;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_fields::M31Var;
 use circle_plonk_dsl_poseidon31::Poseidon2HalfVar;
+use stwo::core::fields::m31::M31;
 
 pub struct CairoFiatShamirResults {}
 
@@ -60,58 +61,97 @@ impl CairoFiatShamirResults {
 
     pub fn check_claim(claim: &CairoClaimVar) {
         let public_data = &claim.public_data;
+        let segment_ranges = &public_data.public_memory.public_segments;
 
-        public_data
-            .public_memory
-            .public_segments
-            .range_check_128
-            .enforce_is_not_empty();
+        segment_ranges.range_check_128.enforce_is_not_empty();
+        segment_ranges.pedersen.enforce_is_empty();
+        segment_ranges.ecdsa.enforce_is_empty();
+        segment_ranges.bitwise.enforce_is_empty();
+        segment_ranges.ec_op.enforce_is_empty();
+        segment_ranges.keccak.enforce_is_empty();
+        segment_ranges.poseidon.enforce_is_empty();
+        segment_ranges.range_check_96.enforce_is_empty();
+        segment_ranges.add_mod.enforce_is_empty();
+        segment_ranges.mul_mod.enforce_is_empty();
 
-        public_data
-            .public_memory
-            .public_segments
-            .pedersen
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .ecdsa
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .bitwise
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .ec_op
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .keccak
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .poseidon
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .range_check_96
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .add_mod
-            .enforce_is_empty();
-        public_data
-            .public_memory
-            .public_segments
-            .mul_mod
-            .enforce_is_empty();
+        // check output builtin
+        {
+            let start_ptr_bits = segment_ranges.output.start_ptr.value.get_31bits();
+            let stop_ptr_bits = segment_ranges.output.stop_ptr.value.get_31bits();
+            start_ptr_bits
+                .is_greater_than(&stop_ptr_bits)
+                .equalverify(&BitVar::new_false(&start_ptr_bits.cs()));
+        }
+
+        // find the claim for range_check_128
+        {
+            let segment_start = &claim.builtins.range_check_builtin_segment_start;
+            let start_ptr = &segment_ranges.range_check_128.start_ptr.value;
+            let stop_ptr = &segment_ranges.range_check_128.stop_ptr.value;
+            start_ptr.enforce_equal(segment_start);
+
+            let start_ptr_bits = start_ptr.get_31bits();
+            let stop_ptr_bits = stop_ptr.get_31bits();
+            start_ptr_bits
+                .is_greater_than(&stop_ptr_bits)
+                .equalverify(&BitVar::new_false(&start_ptr_bits.cs()));
+
+            let log_size = &claim.builtins.range_check_128_builtin_log_size.0;
+            let segment_end = &segment_start.to_m31_unchecked() + &log_size.exp2();
+            let segment_end_bits = BitsVar::from_m31(&segment_end, 31);
+
+            stop_ptr_bits
+                .is_greater_than(&segment_end_bits)
+                .equalverify(&BitVar::new_false(&stop_ptr_bits.cs()));
+        }
+
+        // program is a constant, so we do not check it
+        let initial_pc = &claim.public_data.initial_state.pc;
+        let initial_ap = &claim.public_data.initial_state.ap;
+        let initial_fp = &claim.public_data.initial_state.fp;
+        let final_fp = &claim.public_data.final_state.fp;
+        let final_pc = &claim.public_data.final_state.pc;
+        let final_ap = &claim.public_data.final_state.ap;
+
+        initial_pc.enforce_equal(&ChannelU64Var::new_constant(&initial_pc.cs(), &1u64));
+
+        let initial_ap_bits = initial_ap.get_31bits();
+        // Initial pc + 2 must be less than initial ap, but got initial_pc
+        initial_ap_bits
+            .is_greater_than(&BitsVar::from_m31(
+                &M31Var::new_constant(&initial_pc.cs(), &M31::from(3)),
+                31,
+            ))
+            .equalverify(&BitVar::new_true(&initial_pc.cs()));
+        initial_fp.enforce_equal(final_fp);
+        initial_fp.enforce_equal(initial_ap);
+
+        final_pc.enforce_equal(&ChannelU64Var::new_constant(&final_pc.cs(), &5u64));
+
+        let final_ap_bits = final_ap.get_31bits();
+        initial_ap_bits
+            .is_greater_than(&final_ap_bits)
+            .equalverify(&BitVar::new_false(&initial_ap_bits.cs()));
+
+        /*
+        let mut relation_uses = HashMap::<&'static str, u64>::new();
+        claim.accumulate_relation_uses(&mut relation_uses);
+        relation_uses.iter().for_each(|(_, count)| {
+            assert!(*count < PRIME as u64);
+        });
+        // Large value IDs reside in [LARGE_MEMORY_VALUE_ID_BASE..P).
+        // Check that IDs in (ID -> Value) do not overflow P.
+        let largest_id = claim
+            .memory_id_to_value
+            .big_log_sizes
+            .iter()
+            .map(|log_size| 1 << log_size)
+            .sum::<u32>()
+            - 1
+            + LARGE_MEMORY_VALUE_ID_BASE;
+        assert!(largest_id < PRIME);
+
+        */
     }
 
     /*pub fn lookup_sum(

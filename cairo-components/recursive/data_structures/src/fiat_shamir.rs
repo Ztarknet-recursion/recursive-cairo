@@ -8,6 +8,7 @@ use cairo_air::{
     components::memory_id_to_big,
     opcodes_air::OpcodeClaim,
 };
+use circle_plonk_dsl_bits::BitsVar;
 use circle_plonk_dsl_channel::ChannelVar;
 use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
@@ -71,6 +72,23 @@ impl ChannelU64Var {
 
         let flag = &(&flag0 * &flag1) * &flag2;
         flag.equalverify(&M31Var::zero(&self.cs()));
+    }
+
+    pub fn get_31bits(&self) -> BitsVar {
+        let first = BitsVar::from_m31(&self.0[0], 22).0;
+        let second = BitsVar::from_m31(&self.0[1], 8).0;
+        self.0[2].equalverify(&M31Var::zero(&self.cs()));
+
+        let mut res = first;
+        res.extend(second);
+
+        BitsVar(res)
+    }
+
+    pub fn to_m31_unchecked(&self) -> M31Var {
+        let mut sum = self.0[0].clone();
+        sum = &sum + &self.0[1].mul_constant(M31::from(1 << 22));
+        sum
     }
 }
 

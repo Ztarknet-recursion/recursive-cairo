@@ -7,13 +7,19 @@ use itertools::Itertools;
 use num_traits::{One, Zero};
 use std::collections::HashMap;
 use stwo::core::{
-    ColumnVec, air::Components, channel::{Channel, Poseidon31Channel}, circle::CirclePoint, fields::{
+    air::Components,
+    channel::{Channel, Poseidon31Channel},
+    circle::CirclePoint,
+    fields::{
         m31::{BaseField, M31},
-        qm31::{SECURE_EXTENSION_DEGREE, SecureField},
-    }, pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec}, vcs::{
+        qm31::{SecureField, SECURE_EXTENSION_DEGREE},
+    },
+    pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec},
+    vcs::{
         poseidon31_hash::Poseidon31Hash,
         poseidon31_merkle::{Poseidon31MerkleChannel, Poseidon31MerkleHasher},
-    }
+    },
+    ColumnVec,
 };
 use stwo_cairo_common::{
     builtins::RANGE_CHECK_MEMORY_CELLS, memory::LARGE_MEMORY_VALUE_ID_BASE,
@@ -345,10 +351,7 @@ impl CairoFiatShamirHints {
         // Draw OODS point.
         let oods_point = CirclePoint::<SecureField>::get_random_point(channel);
 
-        println!(
-            "channel after drawing OODS point: {:?}",
-            channel.digest()
-        );
+        println!("channel after drawing OODS point: {:?}", channel.digest());
         println!("oods point: {:?}", oods_point);
 
         // Get mask sample points relative to oods point.

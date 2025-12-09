@@ -1,6 +1,6 @@
 use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
 
-use crate::{CairoClaimVar, fiat_shamir::ChannelU22Var};
+use crate::{fiat_shamir::ChannelU22Var, CairoClaimVar};
 
 #[derive(Clone, Debug)]
 pub enum MaskVar {
@@ -15,7 +15,10 @@ impl MaskTableVar {
     pub fn from_claim(claim: &CairoClaimVar) -> Self {
         let helper = |res: &mut Vec<(MaskVar, usize)>, log_size: &ChannelU22Var, l: usize| {
             res.push((MaskVar::NoMask, (l - 1) * SECURE_EXTENSION_DEGREE));
-            res.push((MaskVar::VariableLogSize(log_size.clone()), SECURE_EXTENSION_DEGREE));
+            res.push((
+                MaskVar::VariableLogSize(log_size.clone()),
+                SECURE_EXTENSION_DEGREE,
+            ));
         };
 
         let helper2 = |res: &mut Vec<(MaskVar, usize)>, log_size: u32, l: usize| {
@@ -55,7 +58,11 @@ impl MaskTableVar {
         helper2(&mut res, 20, 8);
 
         // builtins
-        helper(&mut res, &claim.builtins.range_check_128_builtin_log_size, 1);
+        helper(
+            &mut res,
+            &claim.builtins.range_check_128_builtin_log_size,
+            1,
+        );
 
         // memory_address_to_id
         helper(&mut res, &claim.memory_address_to_id, 8);
@@ -77,8 +84,8 @@ impl MaskTableVar {
         }
         helper2(&mut res, 7, 1);
         helper2(&mut res, 8, 1);
-        helper2(&mut res, 9,1);
-        for _ in 0.. 8 {
+        helper2(&mut res, 9, 1);
+        for _ in 0..8 {
             helper2(&mut res, 18, 1);
         }
         helper2(&mut res, 14, 1);
@@ -100,20 +107,20 @@ impl MaskTableVar {
 
         // verify_bitwise_xor_9
         helper2(&mut res, 18, 1);
-        
+
         MaskTableVar(res)
     }
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use std::path::PathBuf;
 
-    use cairo_air::utils::ProofFormat;
     use cairo_air::utils::deserialize_proof_from_file;
+    use cairo_air::utils::ProofFormat;
     use cairo_plonk_dsl_hints::CairoFiatShamirHints;
-    use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
     use circle_plonk_dsl_constraint_system::var::AllocVar;
+    use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
     use itertools::Itertools;
     use stwo::core::poly::circle::CanonicCoset;
 
@@ -122,7 +129,7 @@ mod tests{
     use super::*;
 
     #[test]
-    fn test_mask_table_var(){
+    fn test_mask_table_var() {
         let cs = ConstraintSystemRef::new_plonk_with_poseidon_ref();
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -141,11 +148,17 @@ mod tests{
 
         let mask_table_var = MaskTableVar::from_claim(&proof_var.claim);
 
-        let expanded_mask_table_var = mask_table_var.0.iter().flat_map(|(mask_var, size)| {
-            (0..*size).map(move |_| mask_var.clone())
-        }).collect::<Vec<MaskVar>>();
+        let expanded_mask_table_var = mask_table_var
+            .0
+            .iter()
+            .flat_map(|(mask_var, size)| (0..*size).map(move |_| mask_var.clone()))
+            .collect::<Vec<MaskVar>>();
 
-        for (l, (i, j)) in fiat_shamir_hints.sample_points[2].iter().zip_eq(expanded_mask_table_var.iter()).enumerate() {
+        for (l, (i, j)) in fiat_shamir_hints.sample_points[2]
+            .iter()
+            .zip_eq(expanded_mask_table_var.iter())
+            .enumerate()
+        {
             if i.len() == 2 {
                 assert!(!matches!(j, MaskVar::NoMask));
                 assert_eq!(i[1], fiat_shamir_hints.oods_point);
