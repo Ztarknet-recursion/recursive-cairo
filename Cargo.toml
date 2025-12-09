@@ -4,7 +4,6 @@ members = [
     "constraint_system", "primitives",
     "components/hints", "components/recursive/fiat_shamir", "components/recursive/composition", "components/recursive/data_structures",
     "components/recursive/answer", "components/recursive/folding",
-    "examples/single-proof", "examples/multi-proofs",
     "cairo-components/hints", "cairo-components/recursive/fiat_shamir", "cairo-components/recursive/data_structures"
 ]
 

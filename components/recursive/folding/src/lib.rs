@@ -67,10 +67,8 @@ impl FoldingResults {
                 let point = query.get_absolute_point().double();
                 let y_inv = point.y.inv();
 
-                let bit_value = query.bits.0[0].0.value.0 != 0;
-                let bit_variable = query.bits.0[0].0.variable;
                 let (left_val, right_val) =
-                    QM31Var::swap(&self_val, &sibling_val, bit_value, bit_variable);
+                    QM31Var::swap(&self_val, &sibling_val, &query.bits.0[0]);
 
                 let new_left_val = &left_val + &right_val;
                 let new_right_val = &(&left_val - &right_val) * &y_inv;
@@ -166,10 +164,8 @@ impl FoldingResults {
                 let point = query.get_absolute_point();
                 let x_inv = point.x.inv();
 
-                let bit_value = query.bits.0[0].0.value.0 != 0;
-                let bit_variable = query.bits.0[0].0.variable;
                 let (left_val, right_val) =
-                    QM31Var::swap(&self_val, &sibling_val, bit_value, bit_variable);
+                    QM31Var::swap(&self_val, &sibling_val, &query.bits.0[0]);
 
                 let new_left_val = &left_val + &right_val;
                 let new_right_val = &(&left_val - &right_val) * &x_inv;

@@ -1,4 +1,4 @@
-use crate::{CM31Var, M31Var};
+use crate::{BitVar, CM31Var, M31Var};
 use circle_plonk_dsl_constraint_system::var::{AllocVar, AllocationMode, Var};
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
 use num_traits::{One, Zero};
@@ -417,14 +417,15 @@ impl QM31Var {
         }
     }
 
-    pub fn select(a: &Self, b: &Self, bit_value: bool, bit_variable: usize) -> Self {
-        let cs = a.cs().and(&b.cs());
+    pub fn select(a: &Self, b: &Self, bit: &BitVar) -> Self {
+        let cs = a.cs().and(&b.cs()).and(&bit.cs());
 
+        let bit_value = bit.0.value.0 != 0;
         let value = if !bit_value { a.value } else { b.value };
 
         // the result is a + (b - a) * bit_value
         let b_minus_a = b - a;
-        let mut variable = cs.mul(b_minus_a.variable, bit_variable);
+        let mut variable = cs.mul(b_minus_a.variable, bit.0.variable);
         variable = cs.add(a.variable, variable);
 
         QM31Var {
@@ -434,9 +435,10 @@ impl QM31Var {
         }
     }
 
-    pub fn swap(a: &Self, b: &Self, bit_value: bool, bit_variable: usize) -> (Self, Self) {
-        let cs = a.cs().and(&b.cs());
+    pub fn swap(a: &Self, b: &Self, bit: &BitVar) -> (Self, Self) {
+        let cs = a.cs().and(&b.cs()).and(&bit.cs());
 
+        let bit_value = bit.0.value.0 != 0;
         let (left_value, right_value) = if !bit_value {
             (a.value, b.value)
         } else {
@@ -444,7 +446,7 @@ impl QM31Var {
         };
 
         let b_minus_a = b - a;
-        let mut left_variable = cs.mul(b_minus_a.variable, bit_variable);
+        let mut left_variable = cs.mul(b_minus_a.variable, bit.0.variable);
         let mut right_variable = cs.mul_constant(left_variable, M31::one().neg());
         left_variable = cs.add(a.variable, left_variable);
         right_variable = cs.add(b.variable, right_variable);
