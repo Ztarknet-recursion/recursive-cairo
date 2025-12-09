@@ -1,7 +1,7 @@
 use crate::data_structures::{EvalAtRowVar, RelationEntryVar};
 use circle_plonk_dsl_constraint_system::var::Var;
 use circle_plonk_dsl_data_structures::LookupElementsVar;
-use circle_plonk_dsl_fields::QM31Var;
+use circle_plonk_dsl_primitives::QM31Var;
 use std::ops::Neg;
 use stwo_examples::plonk::Plonk;
 

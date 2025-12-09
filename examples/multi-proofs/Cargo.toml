@@ -14,7 +14,6 @@ stwo.workspace = true
 stwo-examples.workspace = true
 bincode.workspace = true
 circle-plonk-dsl-constraint-system = { path = "../../constraint_system" }
-circle-plonk-dsl-circle = { path = "../../primitives/circle" }
-circle-plonk-dsl-fields = { path = "../../primitives/fields" }
+circle-plonk-dsl-primitives = { path = "../../primitives" }
 num-traits.workspace = true
 serde.workspace = true

@@ -1,7 +1,7 @@
 use circle_plonk_dsl_answer::AnswerResults;
 use circle_plonk_dsl_data_structures::{PlonkWithPoseidonProofVar, SinglePairMerkleProofVar};
 use circle_plonk_dsl_fiat_shamir::FiatShamirResults;
-use circle_plonk_dsl_fields::QM31Var;
+use circle_plonk_dsl_primitives::QM31Var;
 use circle_plonk_dsl_hints::{FiatShamirHints, FirstLayerHints, InnerLayersHints};
 use std::collections::{BTreeMap, HashMap};
 use stwo::core::vcs::poseidon31_merkle::Poseidon31MerkleChannel;
@@ -67,11 +67,13 @@ impl FoldingResults {
                 let point = query.get_absolute_point().double();
                 let y_inv = point.y.inv();
 
+                let bit_value = query.bits.0[0].0.value.0 != 0;
+                let bit_variable = query.bits.0[0].0.variable;
                 let (left_val, right_val) = QM31Var::swap(
                     &self_val,
                     &sibling_val,
-                    query.bits.value[0],
-                    query.bits.variables[0],
+                    bit_value,
+                    bit_variable,
                 );
 
                 let new_left_val = &left_val + &right_val;
@@ -162,18 +164,19 @@ impl FoldingResults {
                     .unwrap();
                 folded_result.equalverify(&self_val);
 
-                let mut left_query = query.bits.clone();
-                left_query.value[0] = false;
-                left_query.variables[0] = 0;
+                // Note: left_query was previously used but is no longer needed
+                // The swap operation now directly uses query.bits
 
                 let point = query.get_absolute_point();
                 let x_inv = point.x.inv();
 
+                let bit_value = query.bits.0[0].0.value.0 != 0;
+                let bit_variable = query.bits.0[0].0.variable;
                 let (left_val, right_val) = QM31Var::swap(
                     &self_val,
                     &sibling_val,
-                    query.bits.value[0],
-                    query.bits.variables[0],
+                    bit_value,
+                    bit_variable,
                 );
 
                 let new_left_val = &left_val + &right_val;
@@ -209,12 +212,12 @@ impl FoldingResults {
 mod test {
     use crate::FoldingResults;
     use circle_plonk_dsl_answer::AnswerResults;
-    use circle_plonk_dsl_circle::CirclePointQM31Var;
+    use circle_plonk_dsl_primitives::CirclePointQM31Var;
     use circle_plonk_dsl_constraint_system::var::AllocVar;
     use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
     use circle_plonk_dsl_data_structures::PlonkWithPoseidonProofVar;
     use circle_plonk_dsl_fiat_shamir::FiatShamirResults;
-    use circle_plonk_dsl_fields::QM31Var;
+    use circle_plonk_dsl_primitives::QM31Var;
     use circle_plonk_dsl_hints::{
         AnswerHints, DecommitHints, FiatShamirHints, FirstLayerHints, InnerLayersHints,
     };

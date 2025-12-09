@@ -1,6 +1,6 @@
 use circle_plonk_dsl_constraint_system::var::Var;
 use circle_plonk_dsl_data_structures::LookupElementsVar;
-use circle_plonk_dsl_fields::QM31Var;
+use circle_plonk_dsl_primitives::QM31Var;
 use stwo::core::fields::m31::BaseField;
 use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
 use stwo::core::pcs::TreeVec;

@@ -1,11 +1,7 @@
-use circle_plonk_dsl_bits::BitsVar;
-use circle_plonk_dsl_channel::{ChannelVar, HashVar};
+use circle_plonk_dsl_primitives::{BitsVar, ChannelVar, HashVar, M31Var, QM31Var, LinePolyVar, Poseidon31MerkleHasherVar};
 use circle_plonk_dsl_constraint_system::var::{AllocVar, AllocationMode, Var};
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
-use circle_plonk_dsl_fields::{M31Var, QM31Var};
 use circle_plonk_dsl_hints::{DecommitHints, SinglePairMerkleProof, SinglePathMerkleProof};
-use circle_plonk_dsl_line::LinePolyVar;
-use circle_plonk_dsl_merkle::Poseidon31MerkleHasherVar;
 use std::collections::BTreeMap;
 use stwo::core::fields::m31::M31;
 use stwo::core::fri::FriProof;
@@ -512,11 +508,11 @@ impl DecommitmentVar {
 #[cfg(test)]
 mod test {
     use crate::{SinglePairMerkleProofVar, SinglePathMerkleProofVar};
-    use circle_plonk_dsl_bits::BitsVar;
-    use circle_plonk_dsl_channel::HashVar;
+    use circle_plonk_dsl_primitives::BitsVar;
+    use circle_plonk_dsl_primitives::HashVar;
     use circle_plonk_dsl_constraint_system::var::AllocVar;
     use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
-    use circle_plonk_dsl_fields::M31Var;
+    use circle_plonk_dsl_primitives::M31Var;
     use circle_plonk_dsl_hints::{
         AnswerHints, FiatShamirHints, FirstLayerHints, SinglePathMerkleProof,
     };

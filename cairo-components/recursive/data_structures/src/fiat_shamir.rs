@@ -8,13 +8,13 @@ use cairo_air::{
     components::memory_id_to_big,
     opcodes_air::OpcodeClaim,
 };
-use circle_plonk_dsl_bits::BitsVar;
-use circle_plonk_dsl_channel::ChannelVar;
+use circle_plonk_dsl_primitives::BitsVar;
+use circle_plonk_dsl_primitives::ChannelVar;
 use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
-use circle_plonk_dsl_fields::{M31Var, QM31Var};
+use circle_plonk_dsl_primitives::{M31Var, QM31Var};
 use stwo::core::fields::m31::M31;
 use stwo_cairo_common::prover_types::cpu::CasmState;
 

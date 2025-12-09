@@ -1,10 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "constraint_system", "primitives/poseidon31", "primitives/fields", "primitives/channel", "primitives/query",
+    "constraint_system", "primitives",
     "components/hints", "components/recursive/fiat_shamir", "components/recursive/composition", "components/recursive/data_structures",
     "components/recursive/answer", "components/recursive/folding",
-    "primitives/bits", "primitives/circle", "primitives/merkle", "primitives/line",
     "examples/single-proof", "examples/multi-proofs",
     "cairo-components/hints", "cairo-components/recursive/fiat_shamir", "cairo-components/recursive/data_structures"
 ]

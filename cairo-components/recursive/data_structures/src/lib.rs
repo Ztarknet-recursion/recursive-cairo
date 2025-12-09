@@ -1,5 +1,5 @@
 use cairo_air::{air::CairoClaim, CairoProof};
-use circle_plonk_dsl_channel::ChannelVar;
+use circle_plonk_dsl_primitives::ChannelVar;
 use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,

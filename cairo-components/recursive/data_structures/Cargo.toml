@@ -6,13 +6,9 @@ edition = "2021"
 [dependencies]
 stwo.workspace = true
 stwo-examples.workspace = true
-circle-plonk-dsl-fields = { path = "../../../primitives/fields" }
+circle-plonk-dsl-primitives = { path = "../../../primitives" }
 circle-plonk-dsl-constraint-system = { path = "../../../constraint_system" }
-circle-plonk-dsl-channel = { path = "../../../primitives/channel" }
 cairo-plonk-dsl-hints = { path = "../../hints" }
-circle-plonk-dsl-bits = { path = "../../../primitives/bits" }
-circle-plonk-dsl-line = { path = "../../../primitives/line" }
-circle-plonk-dsl-merkle = { path = "../../../primitives/merkle" }
 num-traits.workspace = true
 cairo-air.workspace = true
 stwo-cairo-common.workspace = true

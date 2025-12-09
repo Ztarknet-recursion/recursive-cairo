@@ -1,14 +1,12 @@
+use std::collections::HashMap;
+
 use cairo_air::verifier::INTERACTION_POW_BITS;
 use cairo_plonk_dsl_data_structures::{
     fiat_shamir::ChannelU64Var, lookup::CairoInteractionElementsVar, CairoClaimVar, CairoProofVar,
 };
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
-use circle_plonk_dsl_bits::{BitVar, BitsVar};
-use circle_plonk_dsl_channel::ChannelVar;
-use circle_plonk_dsl_circle::CirclePointQM31Var;
+use circle_plonk_dsl_primitives::{BitVar, BitsVar, ChannelVar, CirclePointQM31Var, M31Var, Poseidon2HalfVar};
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
-use circle_plonk_dsl_fields::M31Var;
-use circle_plonk_dsl_poseidon31::Poseidon2HalfVar;
 use stwo::core::fields::m31::M31;
 
 pub struct CairoFiatShamirResults {}
@@ -132,6 +130,8 @@ impl CairoFiatShamirResults {
         initial_ap_bits
             .is_greater_than(&final_ap_bits)
             .equalverify(&BitVar::new_false(&initial_ap_bits.cs()));
+
+        let _relation_uses = HashMap::<&'static str, M31Var>::new();
 
         /*
         let mut relation_uses = HashMap::<&'static str, u64>::new();

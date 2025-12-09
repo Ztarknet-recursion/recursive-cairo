@@ -1,6 +1,6 @@
-use circle_plonk_dsl_channel::ChannelVar;
+use circle_plonk_dsl_primitives::ChannelVar;
 use circle_plonk_dsl_constraint_system::{var::Var, ConstraintSystemRef};
-use circle_plonk_dsl_fields::QM31Var;
+use circle_plonk_dsl_primitives::QM31Var;
 use stwo_constraint_framework::logup::LookupElements;
 
 #[derive(Debug, Clone)]
