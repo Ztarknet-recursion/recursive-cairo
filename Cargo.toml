@@ -4,7 +4,8 @@ members = [
     "constraint_system", "primitives",
     "components/hints", "components/recursive/fiat_shamir", "components/recursive/composition", "components/recursive/data_structures",
     "components/recursive/answer", "components/recursive/folding",
-    "cairo-components/hints", "cairo-components/recursive/fiat_shamir", "cairo-components/recursive/data_structures"
+    "cairo-components/hints", "cairo-components/recursive/fiat_shamir", "cairo-components/recursive/data_structures",
+    "cairo-components/recursive/composition"
 ]
 
 [workspace.dependencies]

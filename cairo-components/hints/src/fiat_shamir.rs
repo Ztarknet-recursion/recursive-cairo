@@ -7,7 +7,7 @@ use itertools::Itertools;
 use num_traits::{One, Zero};
 use std::collections::HashMap;
 use stwo::core::{
-    air::Components,
+    air::{accumulation::PointEvaluationAccumulator, Components},
     channel::{Channel, Poseidon31Channel},
     circle::CirclePoint,
     fields::{
@@ -26,6 +26,8 @@ use stwo_cairo_common::{
     prover_types::cpu::PRIME,
 };
 use stwo_constraint_framework::PREPROCESSED_TRACE_IDX;
+
+use crate::update_evaluation_accumulator;
 
 pub struct CairoFiatShamirHints {
     pub initial_channel: [M31; 8],
@@ -279,10 +281,6 @@ impl CairoFiatShamirHints {
                 .count()
         );
 
-        for (id, value) in claim.public_data.public_memory.output.iter() {
-            println!("output id: {:?}, value: {:?}", id, value);
-        }
-
         assert!(proof.interaction_claim.opcodes.generic.is_empty());
         assert!(proof.interaction_claim.opcodes.jump.is_empty());
         assert!(proof.interaction_claim.opcodes.jump_double_deref.is_empty());
@@ -328,6 +326,7 @@ impl CairoFiatShamirHints {
             &proof.interaction_claim,
             &preprocessed_trace.ids(),
         );
+
         let components = component_generator.components();
 
         let n_preprocessed_columns = commitment_scheme_verifier.trees[PREPROCESSED_TRACE_IDX]
@@ -339,7 +338,7 @@ impl CairoFiatShamirHints {
             n_preprocessed_columns,
         };
         let composition_log_size = components.composition_log_degree_bound();
-        let _random_coeff = channel.draw_secure_felt();
+        let random_coeff = channel.draw_secure_felt();
 
         // Read composition polynomial commitment.
         commitment_scheme_verifier.commit(
@@ -350,6 +349,148 @@ impl CairoFiatShamirHints {
 
         // Draw OODS point.
         let oods_point = CirclePoint::<SecureField>::get_random_point(channel);
+
+        let composition_oods_eval = {
+            let left_and_right_composition_mask =
+                proof.stark_proof.sampled_values.0.last().unwrap();
+            let left_and_right_coordinate_evals: [SecureField; 2 * SECURE_EXTENSION_DEGREE] =
+                left_and_right_composition_mask
+                    .iter()
+                    .map(|columns| {
+                        let &[eval] = &columns[..] else {
+                            return None;
+                        };
+                        Some(eval)
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+
+            let (left_coordinate_evals, right_coordinate_evals) =
+                left_and_right_coordinate_evals.split_at(SECURE_EXTENSION_DEGREE);
+
+            let left_eval =
+                SecureField::from_partial_evals(left_coordinate_evals.try_into().unwrap());
+            let right_eval =
+                SecureField::from_partial_evals(right_coordinate_evals.try_into().unwrap());
+            left_eval + oods_point.repeated_double(composition_log_size - 2).x * right_eval
+        };
+
+        let mut evaluation_accumulator = PointEvaluationAccumulator::new(random_coeff);
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.add[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.add_small[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.add_ap[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.assert_eq[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.assert_eq_imm[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.assert_eq_double_deref[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.blake[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.call[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.call_rel_imm[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jnz[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jnz_taken[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jump_rel[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jump_rel_imm[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.mul[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.mul_small[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.qm31[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.ret[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        let res = evaluation_accumulator.finalize();
+        println!("current accumulated result: {:?}", res);
+
+        assert_eq!(
+            composition_oods_eval,
+            components.eval_composition_polynomial_at_point(
+                oods_point,
+                &proof.stark_proof.sampled_values,
+                random_coeff,
+            )
+        );
 
         // Get mask sample points relative to oods point.
         let mut sample_points = components.mask_points(oods_point);

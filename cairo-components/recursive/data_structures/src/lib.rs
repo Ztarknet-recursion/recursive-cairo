@@ -9,6 +9,7 @@ use crate::{interaction_claim::CairoInteractionClaimVar, stark_proof::StarkProof
 
 pub mod claim;
 pub mod data_structures;
+pub mod evaluator;
 pub mod interaction_claim;
 pub mod lookup;
 pub mod mask;
