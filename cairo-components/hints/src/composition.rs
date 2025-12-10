@@ -1,0 +1,439 @@
+use cairo_air::CairoProof;
+use stwo::core::{
+    air::accumulation::PointEvaluationAccumulator, vcs::poseidon31_merkle::Poseidon31MerkleHasher,
+};
+
+use crate::{update_evaluation_accumulator, CairoFiatShamirHints};
+
+pub struct CairoCompositionHints {}
+
+impl CairoCompositionHints {
+    pub fn new(
+        fiat_shamir_hints: &CairoFiatShamirHints,
+        proof: &CairoProof<Poseidon31MerkleHasher>,
+    ) -> Self {
+        let oods_point = fiat_shamir_hints.oods_point.clone();
+        let random_coeff = &fiat_shamir_hints.random_coeff;
+        let component_generator = &fiat_shamir_hints.component_generator;
+
+        let mut evaluation_accumulator = PointEvaluationAccumulator::new(*random_coeff);
+
+        // opcodes
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.add[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.add_small[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.add_ap[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.assert_eq[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.assert_eq_imm[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.assert_eq_double_deref[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.blake[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.call[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.call_rel_imm[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jnz[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jnz_taken[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jump_rel[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.jump_rel_imm[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.mul[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.mul_small[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.qm31[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.opcodes.ret[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // verify_instruction
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.verify_instruction,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // blake_context
+        let blake_context_components = &component_generator
+            .blake_context
+            .components
+            .as_ref()
+            .unwrap();
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &blake_context_components.blake_round,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &blake_context_components.blake_g,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &blake_context_components.blake_sigma,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &blake_context_components.triple_xor_32,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &blake_context_components.verify_bitwise_xor_12,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // builtins
+        let range_check_128_builtin = &component_generator
+            .builtins
+            .range_check_128_builtin
+            .as_ref()
+            .unwrap();
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &range_check_128_builtin,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // memory_address_to_id
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.memory_address_to_id,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // memory_id_to_value
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.memory_id_to_value.0[0],
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.memory_id_to_value.1,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // range_checks
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_6,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_8,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_11,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_12,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_18,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_18_b,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_b,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_c,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_d,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_e,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_f,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_g,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_20_h,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_4_3,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_4_4,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_5_4,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_b,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_c,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_d,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_e,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_f,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_g,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_9_9_h,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_7_2_5,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_3_6_6_3,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_4_4_4_4,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.range_checks.rc_3_3_3_3_3,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        // verify_bitwise_xor
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.verify_bitwise_xor_4,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.verify_bitwise_xor_7,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.verify_bitwise_xor_8,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.verify_bitwise_xor_8_b,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+        update_evaluation_accumulator(
+            &mut evaluation_accumulator,
+            &component_generator.verify_bitwise_xor_9,
+            oods_point,
+            &proof.stark_proof.sampled_values,
+        );
+
+        let res = evaluation_accumulator.finalize();
+        println!("current accumulated result: {:?}", res);
+
+        Self {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cairo_air::utils::{deserialize_proof_from_file, ProofFormat};
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_composition_hints() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let data_path = PathBuf::from(manifest_dir)
+            .parent()
+            .unwrap()
+            .join("test_data")
+            .join("recursive_proof.bin.bz");
+
+        let proof = deserialize_proof_from_file(&data_path, ProofFormat::Binary).unwrap();
+        let fiat_shamir_hints = CairoFiatShamirHints::new(&proof);
+        let _ = CairoCompositionHints::new(&fiat_shamir_hints, &proof);
+    }
+}

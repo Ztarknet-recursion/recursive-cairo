@@ -7,7 +7,7 @@ use itertools::Itertools;
 use num_traits::{One, Zero};
 use std::collections::HashMap;
 use stwo::core::{
-    air::{accumulation::PointEvaluationAccumulator, Components},
+    air::Components,
     channel::{Channel, Poseidon31Channel},
     circle::CirclePoint,
     fields::{
@@ -27,8 +27,6 @@ use stwo_cairo_common::{
 };
 use stwo_constraint_framework::PREPROCESSED_TRACE_IDX;
 
-use crate::update_evaluation_accumulator;
-
 pub struct CairoFiatShamirHints {
     pub initial_channel: [M31; 8],
 
@@ -41,6 +39,9 @@ pub struct CairoFiatShamirHints {
 
     pub oods_point: CirclePoint<SecureField>,
     pub sample_points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
+    pub random_coeff: SecureField,
+
+    pub component_generator: CairoComponents,
 }
 
 impl CairoFiatShamirHints {
@@ -377,111 +378,7 @@ impl CairoFiatShamirHints {
             left_eval + oods_point.repeated_double(composition_log_size - 2).x * right_eval
         };
 
-        let mut evaluation_accumulator = PointEvaluationAccumulator::new(random_coeff);
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.add[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.add_small[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.add_ap[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.assert_eq[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.assert_eq_imm[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.assert_eq_double_deref[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.blake[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.call[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.call_rel_imm[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.jnz[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.jnz_taken[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.jump_rel[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.jump_rel_imm[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.mul[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.mul_small[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.qm31[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        update_evaluation_accumulator(
-            &mut evaluation_accumulator,
-            &component_generator.opcodes.ret[0],
-            oods_point,
-            &proof.stark_proof.sampled_values,
-        );
-        let res = evaluation_accumulator.finalize();
-        println!("current accumulated result: {:?}", res);
+        println!("composition_oods_eval: {:?}", composition_oods_eval);
 
         assert_eq!(
             composition_oods_eval,
@@ -518,6 +415,8 @@ impl CairoFiatShamirHints {
 
             oods_point,
             sample_points,
+            random_coeff,
+            component_generator,
         }
     }
 }
