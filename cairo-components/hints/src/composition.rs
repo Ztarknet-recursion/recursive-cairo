@@ -1,6 +1,8 @@
 use cairo_air::CairoProof;
 use stwo::core::{
-    air::accumulation::PointEvaluationAccumulator, vcs::poseidon31_merkle::Poseidon31MerkleHasher,
+    air::{accumulation::PointEvaluationAccumulator, Components},
+    fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE},
+    vcs::poseidon31_merkle::Poseidon31MerkleHasher,
 };
 
 use crate::{update_evaluation_accumulator, CairoFiatShamirHints};
@@ -412,6 +414,55 @@ impl CairoCompositionHints {
 
         let res = evaluation_accumulator.finalize();
         println!("current accumulated result: {:?}", res);
+
+        // Calculate composition OODS evaluation
+        let components_vec = component_generator.components();
+        let components = Components {
+            components: components_vec.to_vec(),
+            n_preprocessed_columns: fiat_shamir_hints.n_preprocessed_columns,
+        };
+
+        let composition_oods_eval = {
+            let left_and_right_composition_mask =
+                proof.stark_proof.sampled_values.0.last().unwrap();
+            let left_and_right_coordinate_evals: [SecureField; 2 * SECURE_EXTENSION_DEGREE] =
+                left_and_right_composition_mask
+                    .iter()
+                    .map(|columns| {
+                        let &[eval] = &columns[..] else {
+                            return None;
+                        };
+                        Some(eval)
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+
+            let (left_coordinate_evals, right_coordinate_evals) =
+                left_and_right_coordinate_evals.split_at(SECURE_EXTENSION_DEGREE);
+
+            let left_eval =
+                SecureField::from_partial_evals(left_coordinate_evals.try_into().unwrap());
+            let right_eval =
+                SecureField::from_partial_evals(right_coordinate_evals.try_into().unwrap());
+            left_eval
+                + oods_point
+                    .repeated_double(fiat_shamir_hints.composition_log_size - 2)
+                    .x
+                    * right_eval
+        };
+
+        println!("composition_oods_eval: {:?}", composition_oods_eval);
+
+        assert_eq!(
+            composition_oods_eval,
+            components.eval_composition_polynomial_at_point(
+                oods_point,
+                &proof.stark_proof.sampled_values,
+                *random_coeff,
+            )
+        );
 
         Self {}
     }

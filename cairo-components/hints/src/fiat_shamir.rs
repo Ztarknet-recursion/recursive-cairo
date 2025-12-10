@@ -42,6 +42,8 @@ pub struct CairoFiatShamirHints {
     pub random_coeff: SecureField,
 
     pub component_generator: CairoComponents,
+    pub composition_log_size: u32,
+    pub n_preprocessed_columns: usize,
 }
 
 impl CairoFiatShamirHints {
@@ -269,19 +271,6 @@ impl CairoFiatShamirHints {
         channel.mix_u64(proof.interaction_pow);
         let interaction_elements = CairoInteractionElements::draw(channel);
 
-        println!(
-            "public memory entries count: {:?}",
-            claim
-                .public_data
-                .public_memory
-                .get_entries(
-                    claim.public_data.initial_state.pc.0,
-                    claim.public_data.initial_state.ap.0,
-                    claim.public_data.final_state.ap.0,
-                )
-                .count()
-        );
-
         assert!(proof.interaction_claim.opcodes.generic.is_empty());
         assert!(proof.interaction_claim.opcodes.jump.is_empty());
         assert!(proof.interaction_claim.opcodes.jump_double_deref.is_empty());
@@ -351,44 +340,6 @@ impl CairoFiatShamirHints {
         // Draw OODS point.
         let oods_point = CirclePoint::<SecureField>::get_random_point(channel);
 
-        let composition_oods_eval = {
-            let left_and_right_composition_mask =
-                proof.stark_proof.sampled_values.0.last().unwrap();
-            let left_and_right_coordinate_evals: [SecureField; 2 * SECURE_EXTENSION_DEGREE] =
-                left_and_right_composition_mask
-                    .iter()
-                    .map(|columns| {
-                        let &[eval] = &columns[..] else {
-                            return None;
-                        };
-                        Some(eval)
-                    })
-                    .collect::<Option<Vec<_>>>()
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
-
-            let (left_coordinate_evals, right_coordinate_evals) =
-                left_and_right_coordinate_evals.split_at(SECURE_EXTENSION_DEGREE);
-
-            let left_eval =
-                SecureField::from_partial_evals(left_coordinate_evals.try_into().unwrap());
-            let right_eval =
-                SecureField::from_partial_evals(right_coordinate_evals.try_into().unwrap());
-            left_eval + oods_point.repeated_double(composition_log_size - 2).x * right_eval
-        };
-
-        println!("composition_oods_eval: {:?}", composition_oods_eval);
-
-        assert_eq!(
-            composition_oods_eval,
-            components.eval_composition_polynomial_at_point(
-                oods_point,
-                &proof.stark_proof.sampled_values,
-                random_coeff,
-            )
-        );
-
         // Get mask sample points relative to oods point.
         let mut sample_points = components.mask_points(oods_point);
         // Add the composition polynomial mask points.
@@ -417,6 +368,8 @@ impl CairoFiatShamirHints {
             sample_points,
             random_coeff,
             component_generator,
+            composition_log_size,
+            n_preprocessed_columns,
         }
     }
 }
@@ -428,7 +381,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_read_recursive_proof() {
+    fn test_fiat_shamir_hints() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let data_path = PathBuf::from(manifest_dir)
             .parent()

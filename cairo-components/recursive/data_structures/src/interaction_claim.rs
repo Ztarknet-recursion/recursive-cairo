@@ -192,6 +192,28 @@ impl OpcodeInteractionClaimVar {
         channel.mix_one_felt(&self.qm31);
         channel.mix_one_felt(&self.ret);
     }
+
+    pub fn sum(&self) -> QM31Var {
+        let mut sum = self.add.clone();
+        sum = &sum + &self.add_small;
+        sum = &sum + &self.add_ap;
+        sum = &sum + &self.assert_eq;
+        sum = &sum + &self.assert_eq_imm;
+        sum = &sum + &self.assert_eq_double_deref;
+        sum = &sum + &self.blake;
+        sum = &sum + &self.call;
+        sum = &sum + &self.call_rel_imm;
+        sum = &sum + &self.jnz;
+        sum = &sum + &self.jnz_taken;
+        sum = &sum + &self.jump_rel;
+        sum = &sum + &self.jump_rel_imm;
+        sum = &sum + &self.mul;
+        sum = &sum + &self.mul_small;
+        sum = &sum + &self.qm31;
+        sum = &sum + &self.ret;
+
+        sum
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -235,6 +257,15 @@ impl BlakeContextInteractionClaimVar {
         channel.mix_one_felt(&self.triple_xor_32);
         channel.mix_one_felt(&self.verify_bitwise_xor_12);
     }
+
+    pub fn sum(&self) -> QM31Var {
+        let mut sum = self.blake_round.clone();
+        sum = &sum + &self.blake_g;
+        sum = &sum + &self.blake_sigma;
+        sum = &sum + &self.triple_xor_32;
+        sum = &sum + &self.verify_bitwise_xor_12;
+        sum
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -264,6 +295,12 @@ impl MemoryIdToValueClaimVar {
     pub fn mix_into(&self, channel: &mut ChannelVar) {
         channel.mix_one_felt(&self.big_claimed_sum);
         channel.mix_one_felt(&self.small_claimed_sum);
+    }
+
+    pub fn sum(&self) -> QM31Var {
+        let mut sum = self.big_claimed_sum.clone();
+        sum = &sum + &self.small_claimed_sum;
+        sum
     }
 }
 
@@ -375,5 +412,38 @@ impl RangeChecksInteractionClaimVar {
         channel.mix_one_felt(&self.rc_3_6_6_3);
         channel.mix_one_felt(&self.rc_4_4_4_4);
         channel.mix_one_felt(&self.rc_3_3_3_3_3);
+    }
+
+    pub fn sum(&self) -> QM31Var {
+        let mut sum = self.rc_6.clone();
+        sum = &sum + &self.rc_8;
+        sum = &sum + &self.rc_11;
+        sum = &sum + &self.rc_12;
+        sum = &sum + &self.rc_18;
+        sum = &sum + &self.rc_18_b;
+        sum = &sum + &self.rc_20;
+        sum = &sum + &self.rc_20_b;
+        sum = &sum + &self.rc_20_c;
+        sum = &sum + &self.rc_20_d;
+        sum = &sum + &self.rc_20_e;
+        sum = &sum + &self.rc_20_f;
+        sum = &sum + &self.rc_20_g;
+        sum = &sum + &self.rc_20_h;
+        sum = &sum + &self.rc_4_3;
+        sum = &sum + &self.rc_4_4;
+        sum = &sum + &self.rc_5_4;
+        sum = &sum + &self.rc_9_9;
+        sum = &sum + &self.rc_9_9_b;
+        sum = &sum + &self.rc_9_9_c;
+        sum = &sum + &self.rc_9_9_d;
+        sum = &sum + &self.rc_9_9_e;
+        sum = &sum + &self.rc_9_9_f;
+        sum = &sum + &self.rc_9_9_g;
+        sum = &sum + &self.rc_9_9_h;
+        sum = &sum + &self.rc_7_2_5;
+        sum = &sum + &self.rc_3_6_6_3;
+        sum = &sum + &self.rc_4_4_4_4;
+        sum = &sum + &self.rc_3_3_3_3_3;
+        sum
     }
 }

@@ -15,6 +15,7 @@ pub mod lookup;
 pub mod mask;
 pub mod public_data;
 pub mod stark_proof;
+pub mod utils;
 
 // Re-export commonly used types
 pub use claim::*;

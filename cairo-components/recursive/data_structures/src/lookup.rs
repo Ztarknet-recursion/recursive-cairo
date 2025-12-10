@@ -1,6 +1,8 @@
 use circle_plonk_dsl_constraint_system::{var::Var, ConstraintSystemRef};
 use circle_plonk_dsl_primitives::ChannelVar;
+use circle_plonk_dsl_primitives::M31Var;
 use circle_plonk_dsl_primitives::QM31Var;
+use stwo::core::fields::m31::M31;
 use stwo_constraint_framework::logup::LookupElements;
 
 #[derive(Debug, Clone)]
@@ -22,6 +24,36 @@ impl<const N: usize> LookupElementsVar<N> {
     pub fn draw(channel: &mut ChannelVar) -> Self {
         let [z, alpha] = channel.draw_felts();
         Self::from_z_and_alpha(z, alpha)
+    }
+
+    pub fn combine_constant(&self, values: &[M31]) -> QM31Var {
+        &values
+            .iter()
+            .zip(&self.alpha_powers)
+            .fold(QM31Var::zero(&self.cs()), |acc, (value, power)| {
+                &acc + &power.mul_constant_m31(*value)
+            })
+            - &self.z
+    }
+
+    pub fn combine(&self, values: &[M31Var]) -> QM31Var {
+        &values
+            .iter()
+            .zip(&self.alpha_powers)
+            .fold(QM31Var::zero(&self.cs()), |acc, (value, power)| {
+                &acc + &(power * value)
+            })
+            - &self.z
+    }
+
+    pub fn combine_ef(&self, values: &[QM31Var]) -> QM31Var {
+        &values
+            .iter()
+            .zip(&self.alpha_powers)
+            .fold(QM31Var::zero(&self.cs()), |acc, (value, power)| {
+                &acc + &(power * value)
+            })
+            - &self.z
     }
 
     pub fn from_z_and_alpha(z: QM31Var, alpha: QM31Var) -> Self {

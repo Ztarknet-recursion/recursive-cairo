@@ -2,12 +2,13 @@ use std::collections::HashMap;
 
 use cairo_air::verifier::INTERACTION_POW_BITS;
 use cairo_plonk_dsl_data_structures::{
-    lookup::CairoInteractionElementsVar, BitIntVar, CairoClaimVar, CairoProofVar,
+    interaction_claim::CairoInteractionClaimVar, lookup::CairoInteractionElementsVar, BitIntVar,
+    CairoClaimVar, CairoProofVar,
 };
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_primitives::{
-    BitVar, BitsVar, ChannelVar, CirclePointQM31Var, M31Var, Poseidon2HalfVar,
+    BitVar, BitsVar, ChannelVar, CirclePointQM31Var, M31Var, Poseidon2HalfVar, QM31Var,
 };
 use stwo::core::fields::m31::M31;
 use stwo_cairo_common::memory::LARGE_MEMORY_VALUE_ID_BASE;
@@ -32,7 +33,7 @@ impl CairoFiatShamirResults {
             .compose_range(0..INTERACTION_POW_BITS as usize);
         lower_bits.equalverify(&M31Var::zero(&cs));
 
-        let _interaction_elements = CairoInteractionElementsVar::draw(&mut channel);
+        let interaction_elements = CairoInteractionElementsVar::draw(&mut channel);
         proof.interaction_claim.mix_into(&mut channel);
 
         channel.mix_root(&proof.stark_proof.interaction_commitment);
@@ -62,6 +63,13 @@ impl CairoFiatShamirResults {
             cs.num_plonk_rows(),
             cs.num_poseidon_invocations()
         );
+
+        let lookup_sum = Self::lookup_sum(
+            &proof.claim,
+            &interaction_elements,
+            &proof.interaction_claim,
+        );
+        lookup_sum.equalverify(&QM31Var::zero(&cs));
 
         Self {}
     }
@@ -157,16 +165,26 @@ impl CairoFiatShamirResults {
             ));
     }
 
-    /*pub fn lookup_sum(
+    pub fn lookup_sum(
         claim: &CairoClaimVar,
         elements: &CairoInteractionElementsVar,
         interaction_claim: &CairoInteractionClaimVar,
     ) -> QM31Var {
-        let cs = claim.cs();
-        let mut sum = QM31Var::zero(&cs);
-
-
-    }*/
+        let mut sum = claim.public_data.logup_sum(elements);
+        sum = &sum + &interaction_claim.opcodes.sum();
+        sum = &sum + &interaction_claim.verify_instruction;
+        sum = &sum + &interaction_claim.blake_context.sum();
+        sum = &sum + &interaction_claim.builtins;
+        sum = &sum + &interaction_claim.memory_address_to_id;
+        sum = &sum + &interaction_claim.memory_id_to_value.sum();
+        sum = &sum + &interaction_claim.range_checks.sum();
+        sum = &sum + &interaction_claim.verify_bitwise_xor_4;
+        sum = &sum + &interaction_claim.verify_bitwise_xor_7;
+        sum = &sum + &interaction_claim.verify_bitwise_xor_8;
+        sum = &sum + &interaction_claim.verify_bitwise_xor_8_b;
+        sum = &sum + &interaction_claim.verify_bitwise_xor_9;
+        sum
+    }
 }
 
 #[cfg(test)]

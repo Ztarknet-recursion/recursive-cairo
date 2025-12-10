@@ -5,10 +5,14 @@ use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
-use circle_plonk_dsl_primitives::ChannelVar;
-use stwo_cairo_common::prover_types::cpu::CasmState;
+use circle_plonk_dsl_primitives::{ChannelVar, M31Var, QM31Var};
+use itertools::Itertools;
+use stwo::core::fields::m31::M31;
+use stwo_cairo_common::prover_types::{cpu::CasmState, felt::split_f252};
 
-use crate::data_structures::BitIntVar;
+use crate::{
+    data_structures::BitIntVar, lookup::CairoInteractionElementsVar, utils::split_f252_memory_var,
+};
 
 #[derive(Debug, Clone)]
 pub struct PublicSegmentRangesVar {
@@ -184,6 +188,14 @@ impl CasmStateVar {
         self.ap.mix_into(channel);
         self.fp.mix_into(channel);
     }
+
+    pub fn logup_sum(&self, elements: &CairoInteractionElementsVar) -> QM31Var {
+        elements
+            .opcodes
+            .0
+            .combine(&[self.pc.to_m31(), self.ap.to_m31(), self.fp.to_m31()])
+            .inv()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -221,13 +233,23 @@ impl PublicDataVar {
         self.initial_state.mix_into(channel);
         self.final_state.mix_into(channel);
     }
+
+    pub fn logup_sum(&self, elements: &CairoInteractionElementsVar) -> QM31Var {
+        let mut sum =
+            self.public_memory
+                .logup_sum(elements, &self.initial_state.ap, &self.final_state.ap);
+        sum = &sum - &self.initial_state.logup_sum(elements);
+        sum = &sum + &self.final_state.logup_sum(elements);
+        sum
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct PublicMemoryVar {
+    pub program_constant: MemorySection,
     pub public_segments: PublicSegmentRangesVar,
     pub output: MemorySectionVar,
-    pub safe_call_ids: [BitIntVar<64>; 2],
+    pub safe_call_ids: [BitIntVar<31>; 2],
 }
 
 impl Var for PublicMemoryVar {
@@ -245,8 +267,9 @@ impl AllocVar for PublicMemoryVar {
         let output = MemorySectionVar::new_variables(cs, &value.output, mode);
         let safe_call_ids = value
             .safe_call_ids
-            .map(|id| BitIntVar::<64>::new_variables(cs, &(id as u64), mode));
+            .map(|id| BitIntVar::<31>::new_variables(cs, &(id as u64), mode));
         Self {
+            program_constant: value.program.clone(),
             public_segments,
             output,
             safe_call_ids,
@@ -262,12 +285,207 @@ impl PublicMemoryVar {
             .iter()
             .for_each(|id| id.mix_into(channel));
     }
+
+    pub fn logup_sum(
+        &self,
+        lookup_elements: &CairoInteractionElementsVar,
+        initial_ap: &BitIntVar<31>,
+        final_ap: &BitIntVar<31>,
+    ) -> QM31Var {
+        let mut sum = QM31Var::zero(&self.cs());
+        for (addr_offset, (id, value)) in self.program_constant.iter().enumerate() {
+            let addr = M31::from((1 + addr_offset) as u32);
+            let id = M31::from_u32_unchecked(*id);
+            let value = split_f252(*value);
+
+            sum = &sum
+                + &lookup_elements
+                    .memory_address_to_id
+                    .0
+                    .combine_constant(&[addr, id])
+                    .inv();
+            sum = &sum
+                + &lookup_elements
+                    .memory_id_to_value
+                    .0
+                    .combine_constant(&[[id].as_slice(), value.as_slice()].concat())
+                    .inv();
+        }
+
+        let final_ap_m31 = final_ap.to_m31();
+        for (addr_offset, (id, value)) in self
+            .output
+            .ids
+            .iter()
+            .zip_eq(self.output.values.iter())
+            .enumerate()
+        {
+            let addr =
+                &final_ap_m31 + &M31Var::new_constant(&self.cs(), &M31::from(addr_offset as u32));
+            let id = id.to_m31();
+            let value = split_f252_memory_var(value);
+
+            sum = &sum
+                + &lookup_elements
+                    .memory_address_to_id
+                    .0
+                    .combine(&[addr, id.clone()])
+                    .inv();
+            sum = &sum
+                + &lookup_elements
+                    .memory_id_to_value
+                    .0
+                    .combine(&[[id].as_slice(), value.as_slice()].concat())
+                    .inv();
+        }
+
+        let initial_ap_m31: M31Var = initial_ap.to_m31();
+        {
+            let addr = &initial_ap_m31 - &M31Var::new_constant(&self.cs(), &M31::from(2));
+            let id = self.safe_call_ids[0].to_m31();
+            let value = [
+                initial_ap.bits.index_range(0..9).compose(),
+                initial_ap.bits.index_range(9..18).compose(),
+                initial_ap.bits.index_range(18..27).compose(),
+                initial_ap.bits.index_range(27..31).compose(),
+            ];
+            sum = &sum
+                + &lookup_elements
+                    .memory_address_to_id
+                    .0
+                    .combine(&[addr, id.clone()])
+                    .inv();
+            sum = &sum
+                + &lookup_elements
+                    .memory_id_to_value
+                    .0
+                    .combine(&[[id].as_slice(), value.as_slice()].concat())
+                    .inv();
+        }
+        {
+            let addr = &initial_ap_m31 - &M31Var::one(&self.cs());
+            let id = self.safe_call_ids[1].to_m31();
+            sum = &sum
+                + &lookup_elements
+                    .memory_address_to_id
+                    .0
+                    .combine(&[addr, id.clone()])
+                    .inv();
+            sum = &sum + &lookup_elements.memory_id_to_value.0.combine(&[id]).inv();
+        }
+
+        let segment_ranges_iter = [
+            &self.public_segments.output,
+            &self.public_segments.pedersen,
+            &self.public_segments.range_check_128,
+            &self.public_segments.ecdsa,
+            &self.public_segments.bitwise,
+            &self.public_segments.ec_op,
+            &self.public_segments.keccak,
+            &self.public_segments.poseidon,
+            &self.public_segments.range_check_96,
+            &self.public_segments.add_mod,
+            &self.public_segments.mul_mod,
+        ];
+
+        for (i, segment_range) in segment_ranges_iter.iter().enumerate() {
+            let start_address =
+                &initial_ap_m31 + &M31Var::new_constant(&self.cs(), &M31::from(i as u32));
+            let stop_address = &final_ap_m31
+                - &M31Var::new_constant(
+                    &self.cs(),
+                    &M31::from((segment_ranges_iter.len() - i) as u32),
+                );
+
+            let start_ptr_id = segment_range.start_ptr.id.to_m31();
+            let start_ptr_value = [
+                segment_range
+                    .start_ptr
+                    .value
+                    .bits
+                    .index_range(0..9)
+                    .compose(),
+                segment_range
+                    .start_ptr
+                    .value
+                    .bits
+                    .index_range(9..18)
+                    .compose(),
+                segment_range
+                    .start_ptr
+                    .value
+                    .bits
+                    .index_range(18..27)
+                    .compose(),
+                segment_range
+                    .start_ptr
+                    .value
+                    .bits
+                    .index_range(27..31)
+                    .compose(),
+            ];
+            let stop_ptr_id = segment_range.stop_ptr.id.to_m31();
+            let stop_ptr_value = [
+                segment_range
+                    .stop_ptr
+                    .value
+                    .bits
+                    .index_range(0..9)
+                    .compose(),
+                segment_range
+                    .stop_ptr
+                    .value
+                    .bits
+                    .index_range(9..18)
+                    .compose(),
+                segment_range
+                    .stop_ptr
+                    .value
+                    .bits
+                    .index_range(18..27)
+                    .compose(),
+                segment_range
+                    .stop_ptr
+                    .value
+                    .bits
+                    .index_range(27..31)
+                    .compose(),
+            ];
+
+            sum = &sum
+                + &lookup_elements
+                    .memory_address_to_id
+                    .0
+                    .combine(&[start_address, start_ptr_id.clone()])
+                    .inv();
+            sum = &sum
+                + &lookup_elements
+                    .memory_address_to_id
+                    .0
+                    .combine(&[stop_address, stop_ptr_id.clone()])
+                    .inv();
+            sum = &sum
+                + &lookup_elements
+                    .memory_id_to_value
+                    .0
+                    .combine(&[[start_ptr_id].as_slice(), start_ptr_value.as_slice()].concat())
+                    .inv();
+            sum = &sum
+                + &lookup_elements
+                    .memory_id_to_value
+                    .0
+                    .combine(&[[stop_ptr_id].as_slice(), stop_ptr_value.as_slice()].concat())
+                    .inv();
+        }
+
+        sum
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MemorySectionVar {
-    pub ids: Vec<BitIntVar<64>>,
-    pub values: Vec<[BitIntVar<64>; 8]>,
+    pub ids: Vec<BitIntVar<31>>,
+    pub values: Vec<[BitIntVar<32>; 8]>,
 }
 
 impl Var for MemorySectionVar {
@@ -282,20 +500,20 @@ impl AllocVar for MemorySectionVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let ids = value
             .iter()
-            .map(|(id, _)| BitIntVar::<64>::new_variables(cs, &(*id as u64), mode))
+            .map(|(id, _)| BitIntVar::<31>::new_variables(cs, &(*id as u64), mode))
             .collect();
         let values = value
             .iter()
             .map(|(_, value)| {
                 [
-                    BitIntVar::<64>::new_variables(cs, &(value[0] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[1] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[2] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[3] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[4] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[5] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[6] as u64), mode),
-                    BitIntVar::<64>::new_variables(cs, &(value[7] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[0] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[1] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[2] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[3] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[4] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[5] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[6] as u64), mode),
+                    BitIntVar::<32>::new_variables(cs, &(value[7] as u64), mode),
                 ]
             })
             .collect();
