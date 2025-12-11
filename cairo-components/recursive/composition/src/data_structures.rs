@@ -1,5 +1,6 @@
-use cairo_plonk_dsl_data_structures::lookup::LookupElementsVar;
+use cairo_plonk_dsl_data_structures::lookup::RelationVar;
 use circle_plonk_dsl_constraint_system::var::Var;
+use circle_plonk_dsl_primitives::fields::WrappedQM31Var;
 use circle_plonk_dsl_primitives::QM31Var;
 use stwo::core::fields::m31::BaseField;
 use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
@@ -7,7 +8,7 @@ use stwo::core::pcs::TreeVec;
 use stwo::core::ColumnVec;
 use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
 use stwo_constraint_framework::{
-    INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
+    RelationEntry, INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
 };
 
 pub struct PointEvaluationAccumulatorVar {
@@ -29,26 +30,6 @@ impl PointEvaluationAccumulatorVar {
 
     pub fn finalize(self) -> QM31Var {
         self.accumulation
-    }
-}
-
-pub struct RelationEntryVar<'a> {
-    pub relation: &'a LookupElementsVar,
-    pub multiplicity: QM31Var,
-    pub values: &'a [QM31Var],
-}
-
-impl<'a> RelationEntryVar<'a> {
-    pub fn new(
-        relation: &'a LookupElementsVar,
-        multiplicity: QM31Var,
-        values: &'a [QM31Var],
-    ) -> Self {
-        Self {
-            relation,
-            multiplicity,
-            values,
-        }
     }
 }
 
@@ -146,23 +127,29 @@ impl<'a> EvalAtRowVar<'a> {
             + &values[3].shift_by_ij()
     }
 
-    pub fn add_to_relation(&mut self, entry: RelationEntryVar) {
-        let mut denom = &entry.relation.alpha_powers[0] * &entry.values[0];
-        for (alpha_power, entry_value) in entry
-            .relation
+    pub fn add_to_relation<R: RelationVar>(
+        &mut self,
+        entry: RelationEntry<WrappedQM31Var, WrappedQM31Var, R>,
+    ) {
+        let relation = entry.relation.get_ref();
+        let cs = relation.cs();
+        let mut denom = &relation.alpha_powers[0] * &entry.values[0].unwrap(&cs);
+        for (alpha_power, entry_value) in relation
             .alpha_powers
             .iter()
             .zip(entry.values.iter())
             .skip(1)
         {
-            denom = &denom + &(alpha_power * entry_value);
+            denom = &denom + &(alpha_power * &entry_value.unwrap(&cs));
         }
-        denom = &denom - &entry.relation.z;
+        denom = &denom - &relation.z;
 
         if self.logup.fracs.is_empty() {
             self.logup.is_finalized = false;
         }
-        self.logup.fracs.push((entry.multiplicity, denom));
+        self.logup
+            .fracs
+            .push((entry.multiplicity.unwrap(&cs), denom));
     }
 
     pub fn add_constraint(&mut self, value: QM31Var) {

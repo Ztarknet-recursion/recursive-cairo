@@ -111,12 +111,8 @@ impl CairoFiatShamirResults {
                 .is_greater_than(&stop_ptr_bits)
                 .equalverify(&BitVar::new_false(&start_ptr_bits.cs()));
 
-            let log_size = &claim
-                .builtins
-                .range_check_128_builtin_log_size
-                .bits
-                .compose();
-            let segment_end = &segment_start.to_m31() + &log_size.exp2();
+            let segment_end =
+                &segment_start.to_m31() + &claim.builtins.range_check_128_builtin_log_size.pow2;
             let segment_end_bits = BitsVar::from_m31(&segment_end, 31);
 
             stop_ptr_bits

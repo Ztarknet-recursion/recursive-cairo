@@ -5,6 +5,7 @@ use circle_plonk_dsl_constraint_system::{
 use circle_plonk_dsl_primitives::BitsVar;
 use circle_plonk_dsl_primitives::ChannelVar;
 use circle_plonk_dsl_primitives::{M31Var, QM31Var};
+use stwo::core::fields::m31::M31;
 
 #[derive(Clone, Debug)]
 pub struct BitIntVar<const N: usize> {
@@ -94,5 +95,47 @@ impl<const N: usize> BitIntVar<N> {
     pub fn to_m31(&self) -> M31Var {
         assert!(N <= 31, "BitIntVar::to_m31 requires N <= 31, got N = {}", N);
         self.bits.compose()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LogSizeVar {
+    pub bits: BitIntVar<5>,
+    pub m31: M31Var,
+    pub pow2: M31Var,
+}
+
+impl Var for LogSizeVar {
+    type Value = u32;
+
+    fn cs(&self) -> ConstraintSystemRef {
+        self.bits.cs().and(&self.pow2.cs()).and(&self.m31.cs())
+    }
+}
+
+impl AllocVar for LogSizeVar {
+    fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
+        let bits = BitIntVar::<5>::new_variables(cs, &(*value as u64), mode);
+        let m31 = if mode == AllocationMode::Constant {
+            M31Var::new_constant(cs, &M31::from(*value))
+        } else {
+            bits.to_m31()
+        };
+        let pow2 = if mode == AllocationMode::Constant {
+            M31Var::new_constant(cs, &M31::from(1 << value))
+        } else {
+            m31.exp2()
+        };
+        Self { bits, m31, pow2 }
+    }
+}
+
+impl LogSizeVar {
+    pub fn mix_into(&self, channel: &mut ChannelVar) {
+        self.bits.mix_into(channel);
+    }
+
+    pub fn to_m31(&self) -> M31Var {
+        self.m31.clone()
     }
 }

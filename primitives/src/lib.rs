@@ -14,6 +14,7 @@ pub use qm31::*;
 pub mod bits;
 pub mod channel;
 pub mod circle;
+pub mod fields;
 pub mod line;
 pub mod merkle;
 pub mod query;

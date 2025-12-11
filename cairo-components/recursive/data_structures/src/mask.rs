@@ -1,6 +1,9 @@
 use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
 
-use crate::{claim::CairoClaimVar, data_structures::BitIntVar};
+use crate::{
+    claim::CairoClaimVar,
+    data_structures::{BitIntVar, LogSizeVar},
+};
 
 #[derive(Clone, Debug)]
 pub enum MaskVar {
@@ -13,10 +16,10 @@ pub struct MaskTableVar(pub Vec<(MaskVar, usize)>);
 
 impl MaskTableVar {
     pub fn from_claim(claim: &CairoClaimVar) -> Self {
-        let helper = |res: &mut Vec<(MaskVar, usize)>, log_size: &BitIntVar<5>, l: usize| {
+        let helper = |res: &mut Vec<(MaskVar, usize)>, log_size: &LogSizeVar, l: usize| {
             res.push((MaskVar::NoMask, (l - 1) * SECURE_EXTENSION_DEGREE));
             res.push((
-                MaskVar::VariableLogSize(log_size.clone()),
+                MaskVar::VariableLogSize(log_size.bits.clone()),
                 SECURE_EXTENSION_DEGREE,
             ));
         };

@@ -12,41 +12,39 @@ use circle_plonk_dsl_primitives::QM31Var;
 use circle_plonk_dsl_primitives::{ChannelVar, M31Var};
 use stwo::core::fields::m31::M31;
 
-use crate::{data_structures::BitIntVar, public_data::PublicDataVar};
+use crate::{data_structures::LogSizeVar, public_data::PublicDataVar, BitIntVar};
 
 macro_rules! accumulate_component {
     ($component_name:ident, $expr:expr, $relation_uses:ident) => {{
-        let m31_var = $expr.to_m31();
-        let zero = M31Var::zero(&m31_var.cs());
+        let pow2_var = &($expr.pow2);
+        let zero = M31Var::zero(&pow2_var.cs());
         for entry in cairo_air::components::$component_name::RELATION_USES_PER_ROW {
             let cur = $relation_uses.get(entry.relation_id).unwrap_or(&zero);
-            let new = m31_var.exp2().mul_constant(M31::from(entry.uses as u32));
+            let new = pow2_var.mul_constant(M31::from(entry.uses as u32));
             $relation_uses.insert(entry.relation_id, cur.add_assert_no_overflow(&new));
         }
     }};
 }
 
-pub struct ClaimLogVar(pub BitIntVar<5>);
-
 #[derive(Debug, Clone)]
 pub struct OpcodeClaimVar {
-    pub add: BitIntVar<5>,
-    pub add_small: BitIntVar<5>,
-    pub add_ap: BitIntVar<5>,
-    pub assert_eq: BitIntVar<5>,
-    pub assert_eq_imm: BitIntVar<5>,
-    pub assert_eq_double_deref: BitIntVar<5>,
-    pub blake: BitIntVar<5>,
-    pub call: BitIntVar<5>,
-    pub call_rel_imm: BitIntVar<5>,
-    pub jnz: BitIntVar<5>,
-    pub jnz_taken: BitIntVar<5>,
-    pub jump_rel: BitIntVar<5>,
-    pub jump_rel_imm: BitIntVar<5>,
-    pub mul: BitIntVar<5>,
-    pub mul_small: BitIntVar<5>,
-    pub qm31: BitIntVar<5>,
-    pub ret: BitIntVar<5>,
+    pub add: LogSizeVar,
+    pub add_small: LogSizeVar,
+    pub add_ap: LogSizeVar,
+    pub assert_eq: LogSizeVar,
+    pub assert_eq_imm: LogSizeVar,
+    pub assert_eq_double_deref: LogSizeVar,
+    pub blake: LogSizeVar,
+    pub call: LogSizeVar,
+    pub call_rel_imm: LogSizeVar,
+    pub jnz: LogSizeVar,
+    pub jnz_taken: LogSizeVar,
+    pub jump_rel: LogSizeVar,
+    pub jump_rel_imm: LogSizeVar,
+    pub mul: LogSizeVar,
+    pub mul_small: LogSizeVar,
+    pub qm31: LogSizeVar,
+    pub ret: LogSizeVar,
 }
 
 impl Var for OpcodeClaimVar {
@@ -59,48 +57,24 @@ impl Var for OpcodeClaimVar {
 
 impl AllocVar for OpcodeClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let add = BitIntVar::<5>::new_variables(cs, &((value.add[0].log_size as u32) as u64), mode);
-        let add_small =
-            BitIntVar::<5>::new_variables(cs, &((value.add_small[0].log_size as u32) as u64), mode);
-        let add_ap =
-            BitIntVar::<5>::new_variables(cs, &((value.add_ap[0].log_size as u32) as u64), mode);
-        let assert_eq =
-            BitIntVar::<5>::new_variables(cs, &((value.assert_eq[0].log_size as u32) as u64), mode);
-        let assert_eq_imm = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.assert_eq_imm[0].log_size as u32) as u64),
-            mode,
-        );
-        let assert_eq_double_deref = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.assert_eq_double_deref[0].log_size as u32) as u64),
-            mode,
-        );
-        let blake =
-            BitIntVar::<5>::new_variables(cs, &((value.blake[0].log_size as u32) as u64), mode);
-        let call =
-            BitIntVar::<5>::new_variables(cs, &((value.call[0].log_size as u32) as u64), mode);
-        let call_rel_imm = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.call_rel_imm[0].log_size as u32) as u64),
-            mode,
-        );
-        let jnz = BitIntVar::<5>::new_variables(cs, &((value.jnz[0].log_size as u32) as u64), mode);
-        let jnz_taken =
-            BitIntVar::<5>::new_variables(cs, &((value.jnz_taken[0].log_size as u32) as u64), mode);
-        let jump_rel =
-            BitIntVar::<5>::new_variables(cs, &((value.jump_rel[0].log_size as u32) as u64), mode);
-        let jump_rel_imm = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.jump_rel_imm[0].log_size as u32) as u64),
-            mode,
-        );
-        let mul = BitIntVar::<5>::new_variables(cs, &((value.mul[0].log_size as u32) as u64), mode);
-        let mul_small =
-            BitIntVar::<5>::new_variables(cs, &((value.mul_small[0].log_size as u32) as u64), mode);
-        let qm31 =
-            BitIntVar::<5>::new_variables(cs, &((value.qm31[0].log_size as u32) as u64), mode);
-        let ret = BitIntVar::<5>::new_variables(cs, &((value.ret[0].log_size as u32) as u64), mode);
+        let add = LogSizeVar::new_variables(cs, &value.add[0].log_size, mode);
+        let add_small = LogSizeVar::new_variables(cs, &value.add_small[0].log_size, mode);
+        let add_ap = LogSizeVar::new_variables(cs, &value.add_ap[0].log_size, mode);
+        let assert_eq = LogSizeVar::new_variables(cs, &value.assert_eq[0].log_size, mode);
+        let assert_eq_imm = LogSizeVar::new_variables(cs, &value.assert_eq_imm[0].log_size, mode);
+        let assert_eq_double_deref =
+            LogSizeVar::new_variables(cs, &value.assert_eq_double_deref[0].log_size, mode);
+        let blake = LogSizeVar::new_variables(cs, &value.blake[0].log_size, mode);
+        let call = LogSizeVar::new_variables(cs, &value.call[0].log_size, mode);
+        let call_rel_imm = LogSizeVar::new_variables(cs, &value.call_rel_imm[0].log_size, mode);
+        let jnz = LogSizeVar::new_variables(cs, &value.jnz[0].log_size, mode);
+        let jnz_taken = LogSizeVar::new_variables(cs, &value.jnz_taken[0].log_size, mode);
+        let jump_rel = LogSizeVar::new_variables(cs, &value.jump_rel[0].log_size, mode);
+        let jump_rel_imm = LogSizeVar::new_variables(cs, &value.jump_rel_imm[0].log_size, mode);
+        let mul = LogSizeVar::new_variables(cs, &value.mul[0].log_size, mode);
+        let mul_small = LogSizeVar::new_variables(cs, &value.mul_small[0].log_size, mode);
+        let qm31 = LogSizeVar::new_variables(cs, &value.qm31[0].log_size, mode);
+        let ret = LogSizeVar::new_variables(cs, &value.ret[0].log_size, mode);
 
         Self {
             add,
@@ -192,9 +166,9 @@ impl OpcodeClaimVar {
 
 #[derive(Debug, Clone)]
 pub struct BlakeContextClaimVar {
-    pub blake_round: BitIntVar<5>,
-    pub blake_g: BitIntVar<5>,
-    pub triple_xor_32: BitIntVar<5>,
+    pub blake_round: LogSizeVar,
+    pub blake_g: LogSizeVar,
+    pub triple_xor_32: LogSizeVar,
 }
 
 impl Var for BlakeContextClaimVar {
@@ -209,15 +183,9 @@ impl AllocVar for BlakeContextClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let value = value.claim.as_ref().unwrap();
 
-        let blake_round =
-            BitIntVar::<5>::new_variables(cs, &((value.blake_round.log_size as u32) as u64), mode);
-        let blake_g =
-            BitIntVar::<5>::new_variables(cs, &((value.blake_g.log_size as u32) as u64), mode);
-        let triple_xor_32 = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.triple_xor_32.log_size as u32) as u64),
-            mode,
-        );
+        let blake_round = LogSizeVar::new_variables(cs, &value.blake_round.log_size, mode);
+        let blake_g = LogSizeVar::new_variables(cs, &value.blake_g.log_size, mode);
+        let triple_xor_32 = LogSizeVar::new_variables(cs, &value.triple_xor_32.log_size, mode);
         Self {
             blake_round,
             blake_g,
@@ -242,7 +210,7 @@ impl BlakeContextClaimVar {
 
 #[derive(Debug, Clone)]
 pub struct BuiltinsClaimVar {
-    pub range_check_128_builtin_log_size: BitIntVar<5>,
+    pub range_check_128_builtin_log_size: LogSizeVar,
     pub range_check_builtin_segment_start: BitIntVar<31>,
 }
 
@@ -256,12 +224,12 @@ impl Var for BuiltinsClaimVar {
 
 impl AllocVar for BuiltinsClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let range_check_128_builtin_log_size = BitIntVar::<5>::new_variables(
+        let range_check_128_builtin_log_size = LogSizeVar::new_variables(
             cs,
-            &((value.range_check_128_builtin.as_ref().unwrap().log_size as u32) as u64),
+            &value.range_check_128_builtin.as_ref().unwrap().log_size,
             mode,
         );
-        let range_check_builtin_segment_start = BitIntVar::<31>::new_variables(
+        let range_check_builtin_segment_start: BitIntVar<31> = BitIntVar::<31>::new_variables(
             cs,
             &(value
                 .range_check_128_builtin
@@ -286,8 +254,8 @@ impl BuiltinsClaimVar {
 
 #[derive(Debug, Clone)]
 pub struct MemoryIdToBigClaimVar {
-    pub big_log_size: BitIntVar<5>,
-    pub small_log_size: BitIntVar<5>,
+    pub big_log_size: LogSizeVar,
+    pub small_log_size: LogSizeVar,
 }
 
 impl Var for MemoryIdToBigClaimVar {
@@ -300,10 +268,8 @@ impl Var for MemoryIdToBigClaimVar {
 
 impl AllocVar for MemoryIdToBigClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let big_log_size =
-            BitIntVar::<5>::new_variables(cs, &((value.big_log_sizes[0] as u32) as u64), mode);
-        let small_log_size =
-            BitIntVar::<5>::new_variables(cs, &((value.small_log_size as u32) as u64), mode);
+        let big_log_size = LogSizeVar::new_variables(cs, &value.big_log_sizes[0], mode);
+        let small_log_size = LogSizeVar::new_variables(cs, &value.small_log_size, mode);
         Self {
             big_log_size,
             small_log_size,
@@ -323,10 +289,10 @@ pub struct CairoClaimVar {
     pub cs: ConstraintSystemRef,
     pub public_data: PublicDataVar,
     pub opcode_claim: OpcodeClaimVar,
-    pub verify_instruction: BitIntVar<5>,
+    pub verify_instruction: LogSizeVar,
     pub blake_context: BlakeContextClaimVar,
     pub builtins: BuiltinsClaimVar,
-    pub memory_address_to_id: BitIntVar<5>,
+    pub memory_address_to_id: LogSizeVar,
     pub memory_id_to_value: MemoryIdToBigClaimVar,
 }
 
@@ -342,18 +308,12 @@ impl AllocVar for CairoClaimVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let public_data = PublicDataVar::new_variables(cs, &value.public_data, mode);
         let opcode_claim = OpcodeClaimVar::new_variables(cs, &value.opcodes, mode);
-        let verify_instruction = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.verify_instruction.log_size as u32) as u64),
-            mode,
-        );
+        let verify_instruction =
+            LogSizeVar::new_variables(cs, &(value.verify_instruction.log_size as u32), mode);
         let blake_context = BlakeContextClaimVar::new_variables(cs, &value.blake_context, mode);
         let builtins = BuiltinsClaimVar::new_variables(cs, &value.builtins, mode);
-        let memory_address_to_id = BitIntVar::<5>::new_variables(
-            cs,
-            &((value.memory_address_to_id.log_size as u32) as u64),
-            mode,
-        );
+        let memory_address_to_id =
+            LogSizeVar::new_variables(cs, &(value.memory_address_to_id.log_size as u32), mode);
         let memory_id_to_value =
             MemoryIdToBigClaimVar::new_variables(cs, &value.memory_id_to_value, mode);
         Self {
