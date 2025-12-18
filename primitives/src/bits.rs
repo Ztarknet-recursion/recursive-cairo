@@ -64,6 +64,10 @@ impl BitVar {
     pub fn new_false(cs: &ConstraintSystemRef) -> BitVar {
         BitVar(M31Var::zero(cs))
     }
+
+    pub fn select(a: &BitVar, b: &BitVar, bit: &BitVar) -> BitVar {
+        BitVar(M31Var::select(&a.0, &b.0, bit))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -145,6 +149,15 @@ impl BitsVar {
             self.0.len()
         );
         self.compose_range(0..self.0.len())
+    }
+
+    pub fn select(a: &BitsVar, b: &BitsVar, bit: &BitVar) -> BitsVar {
+        assert_eq!(a.0.len(), b.0.len());
+        let mut bits = vec![];
+        for i in 0..a.0.len() {
+            bits.push(BitVar::select(&a.0[i], &b.0[i], bit));
+        }
+        BitsVar(bits)
     }
 }
 

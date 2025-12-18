@@ -11,7 +11,7 @@ use stwo::core::{
     fri::FriProof,
     pcs::TreeVec,
     proof::StarkProof,
-    vcs::poseidon31_merkle::Poseidon31MerkleHasher,
+    vcs::{poseidon31_hash::Poseidon31Hash, poseidon31_merkle::Poseidon31MerkleHasher},
     ColumnVec,
 };
 use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
@@ -43,9 +43,9 @@ impl Var for StarkProofVar {
 
 impl AllocVar for StarkProofVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
-        let trace_commitment = HashVar::new_variables(cs, &value.commitments[1].0, mode);
-        let interaction_commitment = HashVar::new_variables(cs, &value.commitments[2].0, mode);
-        let composition_commitment = HashVar::new_variables(cs, &value.commitments[3].0, mode);
+        let trace_commitment = HashVar::new_variables(cs, &value.commitments[1], mode);
+        let interaction_commitment = HashVar::new_variables(cs, &value.commitments[2], mode);
+        let composition_commitment = HashVar::new_variables(cs, &value.commitments[3], mode);
 
         let mut sampled_values = TreeVec::new(vec![]);
         let mut is_preprocessed_trace_present = ColumnVec::new();
@@ -133,17 +133,17 @@ impl Var for FriProofVar {
 impl AllocVar for FriProofVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let first_layer = FriLayerProofVar {
-            commitment: HashVar::new_variables(cs, &value.first_layer.commitment.0, mode),
+            commitment: HashVar::new_variables(cs, &value.first_layer.commitment, mode),
         };
         let mut inner_layers = vec![];
         for layer in value.inner_layers.iter() {
             inner_layers.push(FriLayerProofVar {
-                commitment: HashVar::new_variables(cs, &layer.commitment.0, mode),
+                commitment: HashVar::new_variables(cs, &layer.commitment, mode),
             });
         }
         for _ in inner_layers.len()..MAX_SEQUENCE_LOG_SIZE as usize {
             inner_layers.push(FriLayerProofVar {
-                commitment: HashVar::new_variables(cs, &[M31::zero(); 8], mode),
+                commitment: HashVar::new_variables(cs, &Poseidon31Hash::default(), mode),
             });
         }
 

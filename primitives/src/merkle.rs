@@ -226,8 +226,10 @@ mod test {
         let test_hash_right: [M31; 8] = prng.gen();
         let test_hash_column: [M31; 8] = prng.gen();
 
-        let test_hash_left_var = Poseidon2HalfVar::new_witness(&cs, &test_hash_left);
-        let test_hash_right_var = Poseidon2HalfVar::new_witness(&cs, &test_hash_right);
+        let test_hash_left_var =
+            Poseidon2HalfVar::new_witness(&cs, &Poseidon31Hash(test_hash_left));
+        let test_hash_right_var =
+            Poseidon2HalfVar::new_witness(&cs, &Poseidon31Hash(test_hash_right));
         let test_hash_column_var: [M31Var; 8] =
             std::array::from_fn(|i| M31Var::new_witness(&cs, &test_hash_column[i]));
 
@@ -244,7 +246,8 @@ mod test {
             assert_eq!(a_val[i], b.0[i]);
         }
 
-        let test_hash_right_var = Poseidon2HalfVar::new_witness(&cs, &test_hash_right);
+        let test_hash_right_var =
+            Poseidon2HalfVar::new_witness(&cs, &Poseidon31Hash(test_hash_right));
 
         let a = Poseidon31MerkleHasherVar::hash_tree_with_column(
             &test_hash_left_var,

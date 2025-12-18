@@ -12,7 +12,7 @@ use circle_plonk_dsl_primitives::{
     channel::ConditionalChannelMixer, BitVar, BitsVar, ChannelVar, CirclePointQM31Var, M31Var,
     Poseidon2HalfVar, QM31Var,
 };
-use stwo::core::fields::m31::M31;
+use stwo::core::{fields::m31::M31, vcs::poseidon31_hash::Poseidon31Hash};
 use stwo_cairo_common::{
     memory::LARGE_MEMORY_VALUE_ID_BASE,
     preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE,
@@ -32,7 +32,8 @@ impl CairoFiatShamirResults {
         let cs = proof.cs();
 
         let mut channel = ChannelVar::default(&cs);
-        channel.digest = Poseidon2HalfVar::new_constant(&cs, &fiat_shamir_hints.initial_channel);
+        channel.digest =
+            Poseidon2HalfVar::new_constant(&cs, &Poseidon31Hash(fiat_shamir_hints.initial_channel));
 
         Self::check_claim(&proof.claim);
         proof.claim.mix_into(&mut channel);
@@ -136,6 +137,8 @@ impl CairoFiatShamirResults {
             .compose_range(0..26 as usize); // hardcoded pow_bits of 26
         lower_bits.equalverify(&M31Var::zero(&cs));
 
+        let query_log_size = composition_log_size.clone(); // when the log_blowup_factor is 1
+
         let pcs_config = &fiat_shamir_hints.pcs_config;
         let mut raw_queries = Vec::with_capacity(pcs_config.fri_config.n_queries);
         let mut draw_queries_felts =
@@ -150,8 +153,8 @@ impl CairoFiatShamirResults {
         }
         raw_queries.truncate(pcs_config.fri_config.n_queries);
 
-        let mut mask = vec![];
-        let mut cur = composition_log_size.clone();
+        let mut mask: Vec<BitVar> = vec![];
+        let mut cur = query_log_size.clone();
         for _ in 0..31 {
             let is_cur_nonzero = cur.is_zero().neg();
             cur = &cur - &is_cur_nonzero.0;

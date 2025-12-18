@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cairo_air::CairoProof;
+use cairo_air::{CairoProof, PreProcessedTraceVariant};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use stwo::{
@@ -24,18 +24,29 @@ use crate::CairoFiatShamirHints;
 #[derive(Debug, Clone)]
 pub struct QueryDecommitmentProof {
     pub query: usize,
-    pub nodes: IndexMap<usize, QueryDecommitmentNode>,
+    pub leaf_values: Vec<M31>,
+    pub intermediate_layers: IndexMap<usize, QueryDecommitmentNode>,
+}
+
+impl QueryDecommitmentProof {
+    pub fn leaf_hash(&self) -> Poseidon31Hash {
+        if self.leaf_values.is_empty() {
+            Poseidon31Hash::default()
+        } else {
+            Poseidon31MerkleHasher::hash_column_get_capacity(&self.leaf_values)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct QueryDecommitmentNode {
-    pub children: Option<(Poseidon31Hash, Poseidon31Hash)>,
+    pub children: (Poseidon31Hash, Poseidon31Hash),
     pub value: Vec<M31>,
 }
 
 impl QueryDecommitmentNode {
     pub fn hash(&self) -> Poseidon31Hash {
-        Poseidon31MerkleHasher::hash_node(self.children, &self.value)
+        Poseidon31MerkleHasher::hash_node(Some(self.children), &self.value)
     }
 }
 
@@ -43,21 +54,21 @@ impl QueryDecommitmentProof {
     pub fn from_stwo_proof(
         merkle_verifier: &MerkleVerifier<Poseidon31MerkleHasher>,
         raw_queries: Vec<usize>,
-        depth: usize,
         queries_per_log_size: &BTreeMap<u32, Vec<usize>>,
         queried_values: Vec<BaseField>,
         decommitment: MerkleDecommitment<Poseidon31MerkleHasher>,
     ) -> Vec<QueryDecommitmentProof> {
         let mut layers = IndexMap::new();
 
-        let max_log_size = merkle_verifier.column_log_sizes.iter().max().unwrap();
+        let max_log_size = *merkle_verifier.column_log_sizes.iter().max().unwrap();
+        let max_effective_log_size = *queries_per_log_size.keys().max().unwrap();
 
         let mut queried_values = queried_values.into_iter();
         let mut hash_witness = decommitment.hash_witness.into_iter();
         let mut column_witness = decommitment.column_witness.into_iter();
 
         let mut last_layer_hashes: Option<Vec<(usize, Poseidon31Hash)>> = None;
-        for layer_log_size in (0..=*max_log_size).rev() {
+        for layer_log_size in (0..=max_log_size).rev() {
             let mut layer = IndexMap::new();
 
             let n_columns_in_layer = *merkle_verifier
@@ -122,7 +133,7 @@ impl QueryDecommitmentProof {
                 layer.insert(
                     node_index,
                     QueryDecommitmentNode {
-                        children: node_hashes,
+                        children: node_hashes.unwrap_or_default(),
                         value: node_values.clone(),
                     },
                 );
@@ -158,16 +169,41 @@ impl QueryDecommitmentProof {
             let mut nodes = IndexMap::new();
             let mut cur = *query;
 
-            for log_size in (0..=depth).rev() {
-                let layer = layers.get(&(log_size as u32)).unwrap();
-                let node = layer.get(&cur).unwrap();
-                nodes.insert(log_size as usize, node.clone());
-                cur >>= 1;
+            let leaf_values = {
+                if max_log_size > max_effective_log_size {
+                    vec![]
+                } else {
+                    layers
+                        .get(&max_log_size)
+                        .unwrap()
+                        .get(query)
+                        .unwrap()
+                        .value
+                        .clone()
+                }
+            };
+
+            for log_size in (0..max_log_size).rev() {
+                if log_size > max_effective_log_size {
+                    nodes.insert(
+                        log_size as usize,
+                        QueryDecommitmentNode {
+                            children: Default::default(),
+                            value: vec![],
+                        },
+                    );
+                } else {
+                    let layer = layers.get(&(log_size as u32)).unwrap();
+                    let node = layer.get(&cur).unwrap();
+                    nodes.insert(log_size as usize, node.clone());
+                    cur >>= 1;
+                }
             }
 
             let proof = QueryDecommitmentProof {
                 query: *query,
-                nodes,
+                leaf_values,
+                intermediate_layers: nodes,
             };
             proofs.push(proof);
         }
@@ -585,11 +621,12 @@ pub struct HashAccumulator {
     pub hash: Poseidon31Hash,
 }
 
-pub struct DecommitmentHints {
+pub struct CairoDecommitmentHints {
     pub preprocessed_trace: Vec<PreprocessedTraceQueryResult>,
+    pub preprocessed_trace_decommitment_proofs: Vec<QueryDecommitmentProof>,
 }
 
-impl DecommitmentHints {
+impl CairoDecommitmentHints {
     pub fn new(
         fiat_shamir_hints: &CairoFiatShamirHints,
         proof: &CairoProof<Poseidon31MerkleHasher>,
@@ -617,7 +654,26 @@ impl DecommitmentHints {
             proof.stark_proof.queried_values[3].len()
         );
 
-        Self { preprocessed_trace }
+        let column_log_sizes = PreProcessedTraceVariant::CanonicalWithoutPedersen
+            .to_preprocessed_trace()
+            .log_sizes()
+            .iter()
+            .map(|log_size| log_size + fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor)
+            .collect_vec();
+        let merkle_verifier =
+            MerkleVerifier::new(proof.stark_proof.commitments[0], column_log_sizes);
+        let preprocessed_trace_decommitment_proofs = QueryDecommitmentProof::from_stwo_proof(
+            &merkle_verifier,
+            fiat_shamir_hints.raw_queries.clone(),
+            &fiat_shamir_hints.query_positions_per_log_size,
+            proof.stark_proof.queried_values[0].clone(),
+            proof.stark_proof.decommitments[0].clone(),
+        );
+
+        Self {
+            preprocessed_trace,
+            preprocessed_trace_decommitment_proofs,
+        }
     }
 
     pub fn read_preprocessed_trace(
@@ -822,7 +878,7 @@ mod tests {
 
         let proof = deserialize_proof_from_file(&data_path, ProofFormat::Binary).unwrap();
         let fiat_shamir_hints = CairoFiatShamirHints::new(&proof);
-        let decommitment_hints = DecommitmentHints::new(&fiat_shamir_hints, &proof);
+        let decommitment_hints = CairoDecommitmentHints::new(&fiat_shamir_hints, &proof);
 
         let preprocessed_trace =
             PreProcessedTraceVariant::CanonicalWithoutPedersen.to_preprocessed_trace();
@@ -837,7 +893,6 @@ mod tests {
         let proofs = QueryDecommitmentProof::from_stwo_proof(
             &merkle_verifier,
             fiat_shamir_hints.raw_queries.clone(),
-            fiat_shamir_hints.composition_log_size as usize,
             &fiat_shamir_hints.query_positions_per_log_size,
             proof.stark_proof.queried_values[0].clone(),
             proof.stark_proof.decommitments[0].clone(),
@@ -846,7 +901,7 @@ mod tests {
         let decommitment_proof = proofs[0].clone();
         let column_hashes = decommitment_hints.preprocessed_trace[0].compute_column_hashes();
 
-        for (idx, node) in decommitment_proof.nodes.iter() {
+        for (idx, node) in decommitment_proof.intermediate_layers.iter() {
             if !node.value.is_empty() {
                 assert_eq!(
                     column_hashes

@@ -136,10 +136,10 @@ impl Var for FriProofVar {
 impl AllocVar for FriProofVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let first_layer_commitment =
-            HashVar::new_variables(cs, &value.first_layer.commitment.0, mode);
+            HashVar::new_variables(cs, &value.first_layer.commitment, mode);
         let mut inner_layer_commitments = vec![];
         for layer in value.inner_layers.iter() {
-            inner_layer_commitments.push(HashVar::new_variables(cs, &layer.commitment.0, mode));
+            inner_layer_commitments.push(HashVar::new_variables(cs, &layer.commitment, mode));
         }
         let last_poly = LinePolyVar::new_variables(cs, &value.last_layer_poly, mode);
 
@@ -174,7 +174,7 @@ impl AllocVar for StarkProofVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let mut commitments = Vec::with_capacity(value.commitments.len());
         for commitment in value.commitments.iter() {
-            commitments.push(HashVar::new_variables(cs, &commitment.0, mode));
+            commitments.push(HashVar::new_variables(cs, &commitment, mode));
         }
 
         let mut sampled_values = TreeVec::new(vec![]);
@@ -558,7 +558,7 @@ mod test {
         }
 
         let cs = ConstraintSystemRef::new();
-        let root = HashVar::new_witness(&cs, &proof.stark_proof.commitments[0].0);
+        let root = HashVar::new_witness(&cs, &proof.stark_proof.commitments[0]);
         for proof in proofs.iter() {
             let mut proof_var = SinglePathMerkleProofVar::new(&cs, proof);
             let query = M31Var::new_witness(&cs, &M31::from(proof.query));
@@ -584,7 +584,7 @@ mod test {
         }
 
         let cs = ConstraintSystemRef::new();
-        let root = HashVar::new_witness(&cs, &proof.stark_proof.fri_proof.first_layer.commitment.0);
+        let root = HashVar::new_witness(&cs, &proof.stark_proof.fri_proof.first_layer.commitment);
         for proof in first_layer_hints.merkle_proofs.iter() {
             let mut proof_var = SinglePairMerkleProofVar::new(&cs, proof);
             let query = M31Var::new_witness(&cs, &M31::from(proof.query));

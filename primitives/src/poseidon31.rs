@@ -9,6 +9,7 @@ use implementation::poseidon2_permute;
 use num_traits::{One, Zero};
 use stwo::core::fields::m31::M31;
 use stwo::core::fields::qm31::QM31;
+use stwo::core::vcs::poseidon31_hash::Poseidon31Hash;
 use stwo_examples::plonk_with_poseidon::poseidon::{PoseidonEntry, SwapOption};
 
 #[derive(Debug, Clone)]
@@ -81,7 +82,7 @@ impl Poseidon2HalfVar {
 }
 
 impl Var for Poseidon2HalfVar {
-    type Value = [M31; 8];
+    type Value = Poseidon31Hash;
 
     fn cs(&self) -> ConstraintSystemRef {
         self.cs.clone()
@@ -92,12 +93,12 @@ impl AllocVar for Poseidon2HalfVar {
     fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
         let left = QM31Var::new_variables(
             cs,
-            &QM31::from_m31(value[0], value[1], value[2], value[3]),
+            &QM31::from_m31(value.0[0], value.0[1], value.0[2], value.0[3]),
             mode,
         );
         let right = QM31Var::new_variables(
             cs,
-            &QM31::from_m31(value[4], value[5], value[6], value[7]),
+            &QM31::from_m31(value.0[4], value.0[5], value.0[6], value.0[7]),
             mode,
         );
 
@@ -105,7 +106,7 @@ impl AllocVar for Poseidon2HalfVar {
 
         Self {
             cs: cs.clone(),
-            value: *value,
+            value: value.0,
             left_variable: left.variable,
             right_variable: right.variable,
             sel_value: half_state_variable,
