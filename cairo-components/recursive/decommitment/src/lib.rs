@@ -29,7 +29,6 @@ impl CairoDecommitmentResults {
                 &cs,
                 &decommitment_hints.preprocessed_trace[i],
             );
-
             let decommitment_proof_var = QueryDecommitmentProofVar::new_witness(
                 &cs,
                 &decommitment_hints.preprocessed_trace_decommitment_proofs[i],

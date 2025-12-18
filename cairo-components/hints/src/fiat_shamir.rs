@@ -33,7 +33,7 @@ pub struct CairoFiatShamirHints {
     pub initial_channel: [M31; 8],
 
     pub pcs_config: PcsConfig,
-    pub preprocessed_log_sizes: Vec<u32>,
+    pub log_sizes: TreeVec<Vec<u32>>,
     pub preprocessed_commitment: Poseidon31Hash,
     pub trace_commitment: Poseidon31Hash,
     pub interaction_commitment: Poseidon31Hash,
@@ -474,7 +474,7 @@ impl CairoFiatShamirHints {
         Self {
             initial_channel,
             pcs_config,
-            preprocessed_log_sizes: log_sizes[0].clone(),
+            log_sizes,
             preprocessed_commitment: stark_proof.commitments[0].clone(),
             trace_commitment: stark_proof.commitments[1].clone(),
             interaction_commitment: stark_proof.commitments[2].clone(),
