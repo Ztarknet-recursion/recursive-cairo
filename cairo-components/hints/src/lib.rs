@@ -6,3 +6,6 @@ pub use composition::*;
 
 pub mod decommitment;
 pub use decommitment::*;
+
+pub mod answer;
+pub use answer::*;

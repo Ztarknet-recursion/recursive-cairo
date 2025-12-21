@@ -12,7 +12,7 @@ use stwo::core::{
     circle::CirclePoint,
     fields::{
         m31::{BaseField, M31},
-        qm31::{SecureField, SECURE_EXTENSION_DEGREE},
+        qm31::{SecureField, QM31, SECURE_EXTENSION_DEGREE},
     },
     fri::{CirclePolyDegreeBound, FriVerifier},
     pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec},
@@ -49,6 +49,9 @@ pub struct CairoFiatShamirHints {
 
     pub raw_queries: Vec<usize>,
     pub query_positions_per_log_size: BTreeMap<u32, Vec<usize>>,
+
+    pub commitment_scheme_verifier: CommitmentSchemeVerifier<Poseidon31MerkleChannel>,
+    pub after_sampled_values_random_coeff: QM31,
 }
 
 impl CairoFiatShamirHints {
@@ -199,8 +202,8 @@ impl CairoFiatShamirHints {
         let pcs_config = stark_proof.config;
         pcs_config.mix_into(channel);
 
-        let commitment_scheme_verifier =
-            &mut CommitmentSchemeVerifier::<Poseidon31MerkleChannel>::new(pcs_config);
+        let mut commitment_scheme_verifier =
+            CommitmentSchemeVerifier::<Poseidon31MerkleChannel>::new(pcs_config);
 
         let preprocessed_trace =
             PreProcessedTraceVariant::CanonicalWithoutPedersen.to_preprocessed_trace();
@@ -375,10 +378,8 @@ impl CairoFiatShamirHints {
         println!("trace columns: {}", sample_points[1].len());
         println!("interaction columns: {}", sample_points[2].len());
 
-        let _sample_points_by_column = sample_points.as_cols_ref().flatten();
-
         channel.mix_felts(&proof.stark_proof.sampled_values.clone().flatten_cols());
-        let _after_sampled_values_random_coeff = channel.draw_secure_felt();
+        let after_sampled_values_random_coeff = channel.draw_secure_felt();
 
         let bounds = commitment_scheme_verifier
             .column_log_sizes()
@@ -488,6 +489,9 @@ impl CairoFiatShamirHints {
             n_preprocessed_columns,
             raw_queries,
             query_positions_per_log_size,
+
+            commitment_scheme_verifier,
+            after_sampled_values_random_coeff,
         }
     }
 }

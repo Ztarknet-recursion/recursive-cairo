@@ -351,6 +351,32 @@ impl QM31Var {
         }
     }
 
+    pub fn is_eq(&self, rhs: &QM31Var) -> BitVar {
+        (self - rhs).is_zero()
+    }
+
+    pub fn is_zero(&self) -> BitVar {
+        let cs = self.cs();
+        let inv = QM31Var::new_witness(&self.cs, &{
+            if self.value.is_zero() {
+                QM31::zero()
+            } else {
+                self.value.inverse()
+            }
+        });
+        let out = &(self * &inv).neg() + &M31Var::one(&cs);
+        cs.insert_gate(self.variable, out.variable, 0, M31::zero());
+
+        // force cast to M31Var
+        let out = M31Var {
+            cs,
+            value: out.value.0 .0,
+            variable: out.variable,
+        };
+
+        BitVar(out)
+    }
+
     pub fn equalverify(&self, rhs: &QM31Var) {
         assert_eq!(self.value, rhs.value);
         let cs = self.cs.and(&rhs.cs);

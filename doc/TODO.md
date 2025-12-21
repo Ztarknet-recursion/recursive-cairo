@@ -1,81 +1,84 @@
 # TODO
 
-## Decommitment Merkle Tree in Constraint System
+## Data Structures
 
-### 1. Allocate Merkle Tree Structure in Constraint System
-**Location**: `cairo-components/recursive/decommitment`
+### 1. SampleVar Data Structure
+- [ ] Create a `SampleVar` data structure that arranges samples in a structural format mirrored with `Query`
+  - [ ] Study the `QueryPositionsPerLogSizeVar` and `PointCarryingQueryVar` structure in `primitives/src/query.rs`
+  - [ ] Design `SampleVar` to mirror the hierarchical organization of queries (per log size, with points)
+  - [ ] Ensure `SampleVar` maintains the same structural relationships as `Query` for consistency
+  - [ ] Implement in appropriate location (likely `components/recursive/answer/src/data_structures.rs` or similar)
 
-**Context**: 
-- The Merkle tree structure is already implemented in `cairo-components/hints/src/decommitment.rs` as `QueryDecommitmentProof` and `QueryDecommitmentNode`
-- The structure contains nodes with optional children (for leaf nodes) and column values
-- Some bottom layers may be "optional" (nodes may not exist for all columns)
+### 2. Interaction Data Structure with Two Queries
+- [ ] Create a data structure for interaction where the last `QM31Var` always has two queries
+  - [ ] Review `InteractionQueryResultVar` in `cairo-components/recursive/decommitment/src/data_structures/interaction.rs`
+  - [ ] Design structure ensuring the last `QM31Var` field always contains exactly two queries
+  - [ ] Update interaction query result handling to enforce this constraint
+  - [ ] Add validation/assertions to ensure the two-query requirement is met
 
-**Tasks**:
-- [ ] Create `QueryDecommitmentProofVar` and `QueryDecommitmentNodeVar` structs that mirror the hint structures
-- [ ] Implement `AllocVar` trait for these Var types to allocate them in the constraint system
-- [ ] Handle optional bottom layers: design a mechanism to conditionally allocate nodes based on whether columns exist
-  - Consider using `Option<Poseidon2HalfVar>` for children when they may not exist
-  - Ensure the constraint system can handle sparse Merkle trees where not all leaf nodes are present
-- [ ] Map the layer structure from hints (organized by `log_size`) to the constraint system representation
-- [ ] Ensure proper variable allocation for:
-  - Node hashes (`Poseidon2HalfVar`)
-  - Column values (`Vec<M31Var>`)
-  - Optional children hashes
+## Constraint System Implementation
 
-**Reference**: See `QueryDecommitmentProof::from_stwo_proof` in `cairo-components/hints/src/decommitment.rs` for the structure and logic
+### 3. Masked Point Computation
+- [ ] Implement code that computes the masked point (by -1) in the constraint system
+  - [ ] Review existing masked point logic (e.g., `conditional_negate` in `primitives/src/circle.rs`)
+  - [ ] Implement masked point computation using -1 multiplication in constraint system
+  - [ ] Add consistency checks to compare computed masked points with expected values
+  - [ ] Ensure proper constraint generation for masked point verification
 
-### 2. Complete Merkle Tree Root Computation
-**Location**: `cairo-components/recursive/decommitment`
+## Algorithm Study and Documentation
 
-**Context**:
-- `PreprocessedTraceQueryResultVar::compute_column_hashes()` already computes column hashes (leaf layer)
-- Need to compute intermediate layers and root hash using the Merkle tree structure
+### 4. Accumulator Implementation Study
+- [ ] Study the accumulator code to determine the best implementation order
+  - [ ] Review `HashAccumulatorVar` in `cairo-components/recursive/decommitment/src/utils.rs`
+  - [ ] Review `PointEvaluationAccumulatorVar` in `components/recursive/composition/src/data_structures.rs`
+  - [ ] Analyze the order of operations in existing accumulator implementations
+  - [ ] Document findings on optimal ordering for accumulator operations
+  - [ ] Determine if order matters for correctness and efficiency
 
-**Tasks**:
-- [ ] Implement function to compute intermediate Merkle tree layers from column hashes
-  - Start with column hashes (already computed)
-  - For each layer, compute parent nodes by hashing pairs of children
-  - Handle cases where a node has only one child (odd number of nodes in layer)
-- [ ] Implement root hash computation that traverses from column hashes to root
-  - Use `Poseidon31MerkleHasherVar::hash_tree` or similar methods for parent node computation
-  - Follow the same layer-by-layer approach as in `QueryDecommitmentProof::from_stwo_proof`
-- [ ] Ensure the computation matches the structure from hints:
-  - Layers organized by `log_size` (from max to 0)
-  - Each node's hash computed using `Poseidon31MerkleHasherVar::hash_node` equivalent
-  - Final root should match the commitment root from the proof
-- [ ] Add verification that computed root matches expected root hash
-- [ ] Consider edge cases:
-  - Sparse trees with missing nodes
-  - Layers with odd number of nodes
-  - Empty or single-node layers
+Note that the accumulation would start with the unmasked (oods point) evaluation for all four rounds. 
+After that, it would start processing the accumulation on the -1 point, for each log size.
 
-**Reference**: 
-- See `QueryDecommitmentNode::hash()` in `cairo-components/hints/src/decommitment.rs` for hash computation
-- See `Poseidon31MerkleHasherVar` in `primitives/src/merkle.rs` for available hashing methods
+Each one being inserted gets another "alpha" in it, so the data structure may benefit from having a "cur_multiplier" thing
+nearby. This might not be the most ideal solution, but the current implementation desires so.
 
-### 3. Fixed-Height Decommitment Merkle Tree Proof Allocation
-**Location**: `cairo-components/recursive/decommitment`
+what is being added (assuming a -2j has been taking care of):
 
-**Context**:
-- Need to allocate and process the decommitment merkle tree proof in a way that maintains a fixed height
-- The current code needs to be able to handle this fixed-height structure
+c * queried_value - a * queried_pointed.y - b
 
-**Tasks**:
-- [ ] Design a mechanism to allocate decommitment merkle tree proofs with a fixed height
-- [ ] Ensure the allocation process maintains consistent tree height regardless of input size
-- [ ] Update existing code to handle the fixed-height structure
-- [ ] Verify that the fixed-height approach works with the current constraint system implementation
+where 
 
-### 4. Compressed Hash Accumulation Data Structure
-**Location**: `cairo-components/recursive/decommitment`
+a = sampled_value.img
+b = sampled_point.y.img
+c = sampled.value.real * sampled_point.y.img - sampled_value.img * sampled_point.y.real
 
-**Context**:
-- Need a data structure to hold multiple compressed hash accumulations
-- Will be used to implement `compute_hashes` functionality
+divided by 
+        let prx = sample_batch.point.x.0;
+        let pry = sample_batch.point.y.0;
+        let pix = sample_batch.point.x.1;
+        let piy = sample_batch.point.y.1;
+        denominators.push((prx - domain_point.x) * piy - (pry - domain_point.y) * pix);
 
-**Tasks**:
-- [ ] Create a data structure that holds a collection of compressed hash accumulations
-  - Consider using `HashAccumulatorCompressedVar` or `HashAccumulatorQM31CompressedVar` as building blocks
-- [ ] Design the structure to efficiently store and access multiple compressed accumulations
-- [ ] Implement `compute_hashes` method for the data structure
-- [ ] Ensure the structure integrates well with existing decommitment code
+### 5. Algorithm Documentation
+- [ ] Settle down the algorithm in a standalone format in a note
+  - [ ] Create a comprehensive algorithm description document
+  - [ ] Include step-by-step procedure for the recursive proof verification
+  - [ ] Document data flow and transformations
+  - [ ] Include examples and edge cases
+  - [ ] Make it self-contained and understandable without code context
+
+## Integration and Comparison
+
+### 6. Query Points Implementation
+- [ ] Use the previous implementation that obtains query points
+  - [ ] Review `QueryPositionsPerLogSizeVar::new()` in `primitives/src/query.rs`
+  - [ ] Integrate query point computation into the recursive verification flow
+  - [ ] Ensure compatibility with existing FRI answer computation
+  - [ ] Test query point generation matches expected format
+
+### 7. FRI Answers Comparison
+- [ ] Compare the FRI answers result
+  - [ ] Review FRI answer computation in `components/recursive/answer/src/lib.rs`
+  - [ ] Review comparison logic in `components/recursive/folding/src/lib.rs` (lines 35-54)
+  - [ ] Implement or verify FRI answer comparison between computed and expected values
+  - [ ] Ensure proper constraint system checks for FRI answer equality
+  - [ ] Add tests to validate FRI answer consistency

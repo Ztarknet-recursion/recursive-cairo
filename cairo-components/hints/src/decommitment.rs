@@ -465,8 +465,7 @@ mod tests {
         }
 
         let decommitment_proof = decommitment_hints.interaction_decommitment_proofs[0].clone();
-        let column_hashes = decommitment_hints.interaction[0]
-            .compute_hashes(&proof.interaction_claim, &proof.claim);
+        let column_hashes = decommitment_hints.interaction[0].compute_hashes(&proof.claim);
         let leaf_layer_hash =
             Poseidon31MerkleHasher::hash_column_get_capacity(&decommitment_proof.leaf_values);
         assert_eq!(

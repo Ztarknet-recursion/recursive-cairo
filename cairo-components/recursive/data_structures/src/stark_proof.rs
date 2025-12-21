@@ -55,10 +55,10 @@ impl AllocVar for StarkProofVar {
             for column in value.sampled_values[0].iter() {
                 if column.len() == 1 {
                     round_res.push(vec![QM31Var::new_variables(cs, &column[0], mode)]);
-                    is_preprocessed_trace_present.push(BitVar::new_true(cs));
+                    is_preprocessed_trace_present.push(BitVar::new_variables(cs, &true, mode));
                 } else if column.is_empty() {
                     round_res.push(vec![QM31Var::new_variables(cs, &QM31::zero(), mode)]);
-                    is_preprocessed_trace_present.push(BitVar::new_false(cs));
+                    is_preprocessed_trace_present.push(BitVar::new_variables(cs, &false, mode));
                 } else {
                     unimplemented!()
                 }

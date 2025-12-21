@@ -39,4 +39,8 @@ impl<T: Var + AllocVar> OptionVar<T> {
             value: value,
         }
     }
+
+    pub fn new(is_some: BitVar, value: T) -> Self {
+        Self { is_some, value }
+    }
 }

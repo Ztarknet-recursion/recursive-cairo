@@ -1,8 +1,14 @@
 use circle_plonk_dsl_constraint_system::var::Var;
 use circle_plonk_dsl_constraint_system::{var::AllocVar, ConstraintSystemRef};
+use circle_plonk_dsl_primitives::option::OptionVar;
 use circle_plonk_dsl_primitives::{BitVar, M31Var, Poseidon2HalfVar, QM31Var};
+use indexmap::IndexMap;
+use num_traits::Zero;
 use std::ops::Neg;
 use stwo::core::fields::{m31::M31, qm31::QM31};
+use stwo::core::vcs::poseidon31_ref::poseidon2_permute;
+use stwo::prover::backend::simd::m31::LOG_N_LANES;
+use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
 
 #[derive(Clone)]
 pub struct HashAccumulatorVar {
@@ -61,6 +67,11 @@ impl HashAccumulatorVar {
         let mut new_size = self.size.clone();
         new_size.rotate_left(8);
 
+        let mut new_buffer = self.buffer[8..16].to_vec();
+        for _ in 0..8 {
+            new_buffer.push(M31Var::zero(&self.cs));
+        }
+
         self.digest = [
             QM31Var::select(&self.digest[0], &new_digest[0], &has_at_least_8_elements),
             QM31Var::select(&self.digest[1], &new_digest[1], &has_at_least_8_elements),
@@ -68,6 +79,10 @@ impl HashAccumulatorVar {
         self.refresh_counter = 0;
         for i in 0..16 {
             self.size[i] = BitVar::select(&self.size[i], &new_size[i], &has_at_least_8_elements);
+        }
+        for i in 0..16 {
+            self.buffer[i] =
+                M31Var::select(&self.buffer[i], &new_buffer[i], &has_at_least_8_elements);
         }
     }
 
@@ -147,6 +162,29 @@ impl HashAccumulatorCompressedVar {
         self.compressed_digest[0].cs()
     }
 
+    pub fn new(cs: &ConstraintSystemRef) -> Self {
+        let mut state = [M31::zero(); 16];
+        poseidon2_permute(&mut state);
+
+        let compressed_digest = [
+            QM31Var::new_constant(
+                cs,
+                &QM31::from_m31(state[8], state[9], state[10], state[11]),
+            ),
+            QM31Var::new_constant(
+                cs,
+                &QM31::from_m31(state[12], state[13], state[14], state[15]),
+            ),
+        ];
+
+        Self {
+            size: 0,
+            digest: [QM31::default(), QM31::default()],
+            buffer: [M31::default(); 7],
+            compressed_digest,
+        }
+    }
+
     pub fn select(
         a: &HashAccumulatorCompressedVar,
         b: &HashAccumulatorCompressedVar,
@@ -223,6 +261,11 @@ impl HashAccumulatorCompressedVar {
             buffer,
         }
     }
+
+    pub fn is_eq(&self, rhs: &HashAccumulatorCompressedVar) -> BitVar {
+        &self.compressed_digest[0].is_eq(&rhs.compressed_digest[0])
+            & &self.compressed_digest[1].is_eq(&rhs.compressed_digest[1])
+    }
 }
 
 #[derive(Clone)]
@@ -282,6 +325,11 @@ impl HashAccumulatorQM31Var {
         let mut new_size = self.size.clone();
         new_size.rotate_left(2);
 
+        let mut new_buffer = self.buffer[2..4].to_vec();
+        for _ in 0..2 {
+            new_buffer.push(QM31Var::zero(&self.cs));
+        }
+
         self.digest = [
             QM31Var::select(&self.digest[0], &new_digest[0], &has_at_least_2_elements),
             QM31Var::select(&self.digest[1], &new_digest[1], &has_at_least_2_elements),
@@ -289,6 +337,10 @@ impl HashAccumulatorQM31Var {
         self.refresh_counter = 0;
         for i in 0..4 {
             self.size[i] = BitVar::select(&self.size[i], &new_size[i], &has_at_least_2_elements);
+        }
+        for i in 0..4 {
+            self.buffer[i] =
+                QM31Var::select(&self.buffer[i], &new_buffer[i], &has_at_least_2_elements);
         }
     }
 
@@ -385,6 +437,29 @@ impl HashAccumulatorQM31CompressedVar {
         }
     }
 
+    pub fn new(cs: &ConstraintSystemRef) -> Self {
+        let mut state = [M31::zero(); 16];
+        poseidon2_permute(&mut state);
+
+        let compressed_digest = [
+            QM31Var::new_constant(
+                cs,
+                &QM31::from_m31(state[8], state[9], state[10], state[11]),
+            ),
+            QM31Var::new_constant(
+                cs,
+                &QM31::from_m31(state[12], state[13], state[14], state[15]),
+            ),
+        ];
+
+        Self {
+            size: 0,
+            digest: [QM31::default(), QM31::default()],
+            buffer: [QM31::default(); 1],
+            compressed_digest,
+        }
+    }
+
     pub fn decompress(&self) -> HashAccumulatorQM31Var {
         let cs = self.compressed_digest[0].cs();
 
@@ -426,6 +501,130 @@ impl HashAccumulatorQM31CompressedVar {
             digest,
             buffer,
         }
+    }
+
+    pub fn is_eq(&self, rhs: &HashAccumulatorQM31CompressedVar) -> BitVar {
+        &self.compressed_digest[0].is_eq(&rhs.compressed_digest[0])
+            & &self.compressed_digest[1].is_eq(&rhs.compressed_digest[1])
+    }
+}
+
+pub struct ColumnsHasherVar {
+    pub cs: ConstraintSystemRef,
+    pub map: IndexMap<usize, HashAccumulatorCompressedVar>,
+}
+
+impl ColumnsHasherVar {
+    pub fn new(cs: &ConstraintSystemRef) -> Self {
+        let mut map = IndexMap::new();
+        for i in LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE {
+            map.insert(i as usize, HashAccumulatorCompressedVar::new(&cs));
+        }
+        Self {
+            cs: cs.clone(),
+            map,
+        }
+    }
+
+    pub fn update(&mut self, log_size: &M31Var, data: &[M31Var]) {
+        let cs = log_size.cs();
+        let mut entry = HashAccumulatorCompressedVar::new(&cs);
+
+        let mut bits = vec![];
+        for (k, _) in self.map.iter() {
+            let bit = log_size.is_eq(&M31Var::new_constant(&cs, &M31::from(*k)));
+            bits.push(bit);
+        }
+        for ((_, v), bit) in self.map.iter().zip(bits.iter()) {
+            entry = HashAccumulatorCompressedVar::select(&entry, v, &bit);
+        }
+
+        let mut decompressed = entry.decompress();
+        decompressed.update(data);
+        let compressed = decompressed.compress();
+
+        for ((_, v), bit) in self.map.iter_mut().zip(bits.iter()) {
+            *v = HashAccumulatorCompressedVar::select(v, &compressed, bit);
+        }
+    }
+
+    pub fn update_fixed_log_size(&mut self, log_size: u32, data: &[M31Var]) {
+        let entry = self.map.get_mut(&(log_size as usize)).unwrap();
+        let mut decompressed = entry.decompress();
+        decompressed.update(data);
+        let compressed = decompressed.compress();
+        *entry = compressed;
+    }
+
+    pub fn finalize(self) -> IndexMap<usize, OptionVar<Poseidon2HalfVar>> {
+        let mut map = IndexMap::new();
+        let empty = HashAccumulatorCompressedVar::new(&self.cs);
+        for (k, v) in self.map.iter() {
+            let final_digest = v.decompress().finalize();
+            let value = Poseidon2HalfVar::from_qm31(&final_digest[0], &final_digest[1]);
+            let is_some = v.is_eq(&empty).neg();
+            map.insert(*k, OptionVar { is_some, value });
+        }
+        map
+    }
+}
+
+pub struct ColumnsHasherQM31Var {
+    pub cs: ConstraintSystemRef,
+    pub map: IndexMap<usize, HashAccumulatorQM31CompressedVar>,
+}
+
+impl ColumnsHasherQM31Var {
+    pub fn new(cs: &ConstraintSystemRef) -> Self {
+        let mut map = IndexMap::new();
+        for i in LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE {
+            map.insert(i as usize, HashAccumulatorQM31CompressedVar::new(&cs));
+        }
+        Self {
+            cs: cs.clone(),
+            map,
+        }
+    }
+
+    pub fn update(&mut self, log_size: &M31Var, data: &[QM31Var]) {
+        let cs = log_size.cs();
+        let mut entry = HashAccumulatorQM31CompressedVar::new(&cs);
+
+        let mut bits = vec![];
+        for (k, _) in self.map.iter() {
+            let bit = log_size.is_eq(&M31Var::new_constant(&cs, &M31::from(*k)));
+            bits.push(bit);
+        }
+        for ((_, v), bit) in self.map.iter_mut().zip(bits.iter()) {
+            entry = HashAccumulatorQM31CompressedVar::select(&entry, v, bit);
+        }
+
+        let mut decompressed = entry.decompress();
+        decompressed.update(data);
+        let compressed = decompressed.compress();
+        for ((_, v), bit) in self.map.iter_mut().zip(bits.iter()) {
+            *v = HashAccumulatorQM31CompressedVar::select(v, &compressed, bit);
+        }
+    }
+
+    pub fn finalize(self) -> IndexMap<usize, OptionVar<Poseidon2HalfVar>> {
+        let mut map = IndexMap::new();
+        let empty = HashAccumulatorQM31CompressedVar::new(&self.cs);
+        for (k, v) in self.map.iter() {
+            let final_digest = v.decompress().finalize();
+            let value = Poseidon2HalfVar::from_qm31(&final_digest[0], &final_digest[1]);
+            let is_some = v.is_eq(&empty).neg();
+            map.insert(*k, OptionVar { is_some, value });
+        }
+        map
+    }
+
+    pub fn update_fixed_log_size(&mut self, log_size: u32, data: &[QM31Var]) {
+        let entry = self.map.get_mut(&(log_size as usize)).unwrap();
+        let mut decompressed = entry.decompress();
+        decompressed.update(data);
+        let compressed = decompressed.compress();
+        *entry = compressed;
     }
 }
 

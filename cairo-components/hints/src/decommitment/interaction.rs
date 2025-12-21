@@ -1,8 +1,5 @@
 use cairo_air::{
-    air::{CairoClaim, CairoInteractionClaim},
-    blake::air::BlakeContextClaim,
-    opcodes_air::{OpcodeClaim, OpcodeInteractionClaim},
-    CairoProof,
+    air::CairoClaim, blake::air::BlakeContextClaim, opcodes_air::OpcodeClaim, CairoProof,
 };
 use indexmap::IndexMap;
 use stwo::core::{
@@ -93,46 +90,35 @@ pub struct VerifyBitwiseInteractionQueryResult {
 }
 
 impl InteractionQueryResult {
-    pub fn compute_hashes(
-        &self,
-        interaction_claim: &CairoInteractionClaim,
-        trace_claim: &CairoClaim,
-    ) -> IndexMap<usize, Poseidon31Hash> {
+    pub fn compute_hashes(&self, claim: &CairoClaim) -> IndexMap<usize, Poseidon31Hash> {
         let mut columns_hasher = ColumnsHasherQM31::new();
 
-        self.opcodes.update_hashes(
-            &mut columns_hasher,
-            &interaction_claim.opcodes,
-            &trace_claim.opcodes,
-        );
-        columns_hasher.update(
-            trace_claim.verify_instruction.log_size,
-            &self.verify_instruction,
-        );
+        self.opcodes
+            .update_hashes(&mut columns_hasher, &claim.opcodes);
+        columns_hasher.update(claim.verify_instruction.log_size, &self.verify_instruction);
         self.blake
-            .update_hashes(&mut columns_hasher, &trace_claim.blake_context);
+            .update_hashes(&mut columns_hasher, &claim.blake_context);
         columns_hasher.update(
-            trace_claim
-                .builtins
-                .range_check_128_builtin
-                .unwrap()
-                .log_size,
+            claim.builtins.range_check_128_builtin.unwrap().log_size,
             &self.range_check_128_builtin,
         );
         columns_hasher.update(
-            trace_claim.memory_address_to_id.log_size,
+            claim.memory_address_to_id.log_size,
             &self.memory_address_to_id,
         );
         columns_hasher.update(
-            trace_claim.memory_id_to_value.big_log_sizes[0],
+            claim.memory_id_to_value.big_log_sizes[0],
             &self.memory_id_to_big_big,
         );
         columns_hasher.update(
-            trace_claim.memory_id_to_value.small_log_size,
+            claim.memory_id_to_value.small_log_size,
             &self.memory_id_to_big_small,
         );
         self.range_checks.update_hashes(&mut columns_hasher);
         self.verify_bitwise.update_hashes(&mut columns_hasher);
+        for (k, v) in columns_hasher.0.iter() {
+            println!("k: {}, v: {:?}", k, v.finalize());
+        }
 
         let mut map = IndexMap::new();
         for (log_size, hash) in columns_hasher.0 {
@@ -143,12 +129,7 @@ impl InteractionQueryResult {
 }
 
 impl OpcodesInteractionQueryResult {
-    pub fn update_hashes(
-        &self,
-        columns_hasher: &mut ColumnsHasherQM31,
-        _interaction_claim: &OpcodeInteractionClaim,
-        trace_claim: &OpcodeClaim,
-    ) {
+    pub fn update_hashes(&self, columns_hasher: &mut ColumnsHasherQM31, trace_claim: &OpcodeClaim) {
         columns_hasher.update(trace_claim.add[0].log_size, &self.add);
         columns_hasher.update(trace_claim.add_small[0].log_size, &self.add_small);
         columns_hasher.update(trace_claim.add_ap[0].log_size, &self.add_ap);

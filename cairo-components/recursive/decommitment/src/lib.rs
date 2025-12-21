@@ -58,18 +58,43 @@ impl CairoDecommitmentResults {
                 &preprocessed_result_var.compute_column_hashes(),
             );
 
-            // TODO: compute their merkle column hashes
-            let _trace_proof_var = QueryDecommitmentProofVar::new_witness(
+            let trace_decommitment_proof_var = QueryDecommitmentProofVar::new_witness(
                 &cs,
                 &decommitment_hints.trace_decommitment_proofs[i],
             );
-            let _interaction_proof_var = QueryDecommitmentProofVar::new_witness(
+            trace_decommitment_proof_var.verify(
+                fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor,
+                &fiat_shamir_results.queries[i],
+                &proof.stark_proof.trace_commitment,
+                &fiat_shamir_results.max_log_size,
+                &fiat_shamir_results.max_log_size,
+                &trace_result_var.compute_column_hashes(&proof.claim),
+            );
+
+            let interaction_decommitment_proof_var = QueryDecommitmentProofVar::new_witness(
                 &cs,
                 &decommitment_hints.interaction_decommitment_proofs[i],
             );
-            let _composition_proof_var = QueryDecommitmentProofVar::new_witness(
+            interaction_decommitment_proof_var.verify(
+                fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor,
+                &fiat_shamir_results.queries[i],
+                &proof.stark_proof.interaction_commitment,
+                &fiat_shamir_results.max_log_size,
+                &fiat_shamir_results.max_log_size,
+                &interaction_result_var.compute_column_hashes(&proof.claim),
+            );
+
+            let composition_decommitment_proof_var = QueryDecommitmentProofVar::new_witness(
                 &cs,
                 &decommitment_hints.composition_decommitment_proofs[i],
+            );
+            composition_decommitment_proof_var.verify(
+                fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor,
+                &fiat_shamir_results.queries[i],
+                &proof.stark_proof.composition_commitment,
+                &fiat_shamir_results.max_log_size,
+                &fiat_shamir_results.max_log_size,
+                &composition_result_var.compute_column_hashes(&fiat_shamir_results.max_log_size),
             );
 
             results.push(CairoDecommitmentResultVar {

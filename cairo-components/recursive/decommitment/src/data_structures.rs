@@ -127,17 +127,21 @@ impl QueryDecommitmentProofVar {
                 Some(hash_column) => {
                     let is_hash_column_present = &hash_column.is_some;
 
-                    let case_with_column = Poseidon31MerkleHasherVar::hash_tree_with_column(
-                        &layer.0,
-                        &layer.1,
+                    let case_without_column =
+                        Poseidon31MerkleHasherVar::hash_tree(&layer.0, &layer.1).to_qm31();
+
+                    let tree_hash = [
+                        &case_without_column[0] * &is_layer_present.0,
+                        &case_without_column[1] * &is_layer_present.0,
+                    ];
+
+                    let case_with_column = Poseidon2HalfVar::permute_get_rate(
+                        &Poseidon2HalfVar::from_qm31(&tree_hash[0], &tree_hash[1]),
                         &hash_column.value,
                     )
                     .to_qm31();
 
-                    let case_without_column =
-                        Poseidon31MerkleHasherVar::hash_tree(&layer.0, &layer.1).to_qm31();
-
-                    let new_expected_hash = [
+                    expected_hash = [
                         QM31Var::select(
                             &case_without_column[0],
                             &case_with_column[0],
@@ -149,36 +153,10 @@ impl QueryDecommitmentProofVar {
                             &is_hash_column_present,
                         ),
                     ];
-
-                    expected_hash = [
-                        QM31Var::select(
-                            &expected_hash[0],
-                            &new_expected_hash[0],
-                            &is_layer_present,
-                        ),
-                        QM31Var::select(
-                            &expected_hash[1],
-                            &new_expected_hash[1],
-                            &is_layer_present,
-                        ),
-                    ];
                 }
                 None => {
-                    let case_without_column =
+                    expected_hash =
                         Poseidon31MerkleHasherVar::hash_tree(&layer.0, &layer.1).to_qm31();
-
-                    expected_hash = [
-                        QM31Var::select(
-                            &expected_hash[0],
-                            &case_without_column[0],
-                            &is_layer_present,
-                        ),
-                        QM31Var::select(
-                            &expected_hash[1],
-                            &case_without_column[1],
-                            &is_layer_present,
-                        ),
-                    ];
                 }
             }
         }
