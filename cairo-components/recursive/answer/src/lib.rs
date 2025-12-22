@@ -1,15 +1,22 @@
 pub mod data_structures;
-use cairo_plonk_dsl_data_structures::stark_proof::StarkProofVar;
 pub use data_structures::*;
+
+use cairo_plonk_dsl_data_structures::stark_proof::StarkProofVar;
+use circle_plonk_dsl_constraint_system::var::Var;
 
 pub struct AnswerResults {}
 
 impl AnswerResults {
     pub fn compute(stark_proof: &StarkProofVar) -> AnswerResults {
+        let cs = stark_proof.cs();
+
         let _ = PreprocessedTraceSampleResultVar::new(
+            &cs,
             &stark_proof.sampled_values[0],
             &stark_proof.is_preprocessed_trace_present,
         );
+        let _ = TraceSampleResultVar::new(&cs, &stark_proof.sampled_values[1]);
+        let _ = InteractionSampleResultVar::new(&cs, &stark_proof.sampled_values[2]);
         Self {}
     }
 }
