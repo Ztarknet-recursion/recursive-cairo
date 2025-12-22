@@ -1,7 +1,6 @@
-use std::{cmp::Reverse, collections::BTreeMap};
-
 use cairo_air::CairoProof;
 use itertools::{izip, multiunzip, Itertools};
+use std::{cmp::Reverse, collections::BTreeMap};
 use stwo::core::{
     fields::{m31::BaseField, qm31::SecureField},
     pcs::{
@@ -24,7 +23,7 @@ impl AnswerHints {
         fiat_shamir_hints: &CairoFiatShamirHints,
         proof: &CairoProof<Poseidon31MerkleHasher>,
     ) {
-        let samples = fiat_shamir_hints
+        let _samples = fiat_shamir_hints
             .sample_points
             .clone()
             .zip_cols(proof.stark_proof.sampled_values.clone())
@@ -40,17 +39,74 @@ impl AnswerHints {
             .as_ref()
             .map(|tree| &tree.n_columns_per_log_size);
 
-        let _ = fri_answers(
-            fiat_shamir_hints
-                .commitment_scheme_verifier
-                .column_log_sizes(),
-            samples,
-            fiat_shamir_hints.random_coeff,
+        // keep only the preprocessed trace
+        let column_log_sizes = fiat_shamir_hints
+            .commitment_scheme_verifier
+            .column_log_sizes();
+
+        let samples = fiat_shamir_hints.sample_points[0]
+            .iter()
+            .zip(proof.stark_proof.sampled_values[0].iter())
+            .map(|(sample_points, sampled_values)| {
+                std::iter::zip(sample_points, sampled_values)
+                    .map(|(point, value)| PointSample {
+                        point: point.clone(),
+                        value: value.clone(),
+                    })
+                    .collect_vec()
+            })
+            .collect_vec();
+
+        for (i, (log_size, sample)) in column_log_sizes[0]
+            .iter()
+            .zip(proof.stark_proof.sampled_values[0].iter())
+            .enumerate()
+        {
+            if sample.is_empty() {
+                println!("log_size: {:?}, i: {}", log_size, i);
+            }
+        }
+
+        let log_sizes = column_log_sizes[0]
+            .iter()
+            .sorted_by_key(|log_size| Reverse(*log_size))
+            .dedup()
+            .filter(|log_size| fiat_shamir_hints.query_positions_per_log_size.get(log_size) != None)
+            .collect_vec();
+
+        let first_query = fiat_shamir_hints.raw_queries[0];
+
+        let answers = fri_answers(
+            TreeVec::new(vec![column_log_sizes[0].clone()]),
+            TreeVec::new(vec![samples]),
+            fiat_shamir_hints.after_sampled_values_random_coeff,
             &fiat_shamir_hints.query_positions_per_log_size,
-            proof.stark_proof.queried_values.clone(),
-            n_columns_per_log_size,
+            TreeVec::new(vec![proof.stark_proof.queried_values[0].clone()]),
+            TreeVec::new(vec![n_columns_per_log_size[0]]),
         )
         .unwrap();
+
+        let max_query = fiat_shamir_hints
+            .query_positions_per_log_size
+            .keys()
+            .max()
+            .unwrap();
+
+        for (log_size, answer) in log_sizes.iter().zip(answers.iter()) {
+            let queries_for_log_size = fiat_shamir_hints
+                .query_positions_per_log_size
+                .get(&log_size)
+                .unwrap();
+
+            for (query_position, answer) in queries_for_log_size.iter().zip(answer.iter()) {
+                if *query_position == first_query >> (*max_query - **log_size) {
+                    println!(
+                        "log_size = {}, query_position: {:?}, answer: {:?}",
+                        **log_size, *query_position, answer
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -71,6 +127,7 @@ pub fn fri_answers(
         .filter_map(|(log_size, tuples)| {
             // Skip processing this log size if it does not have any associated queries.
             let queries_for_log_size = query_positions_per_log_size.get(&log_size)?;
+            println!("log_size: {:?}", log_size);
 
             let (_, samples): (Vec<_>, Vec<_>) = multiunzip(tuples);
             Some(fri_answers_for_log_size(
@@ -96,13 +153,6 @@ pub fn fri_answers_for_log_size(
     n_columns: TreeVec<usize>,
 ) -> Result<Vec<SecureField>, VerificationError> {
     let sample_batches = ColumnSampleBatch::new_vec(samples);
-    for sample_batch in sample_batches.iter() {
-        println!("sample_batch: {} {:?}", log_size, sample_batch.point.x.0 .0);
-        println!(
-            "sample_batch columns and values: {:?}",
-            sample_batch.columns_and_values.len()
-        );
-    }
     // TODO(ilya): Is it ok to use the same `random_coeff` for all log sizes.
     let quotient_constants = quotient_constants(&sample_batches, random_coeff);
     let commitment_domain = CanonicCoset::new(log_size).circle_domain();
@@ -119,12 +169,14 @@ pub fn fri_answers_for_log_size(
             .map(|(queried_values, n_columns)| queried_values.take(*n_columns).collect())
             .flatten();
 
-        quotient_evals_at_queries.push(accumulate_row_quotients(
+        let res = accumulate_row_quotients(
             &sample_batches,
             &queried_values_at_row,
             &quotient_constants,
             domain_point,
-        ));
+        );
+
+        quotient_evals_at_queries.push(res);
     }
 
     Ok(quotient_evals_at_queries)

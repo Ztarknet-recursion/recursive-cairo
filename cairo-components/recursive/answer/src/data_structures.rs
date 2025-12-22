@@ -1,809 +1,104 @@
-use cairo_air::components;
-use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
-use circle_plonk_dsl_primitives::{option::OptionVar, BitVar, QM31Var};
-use itertools::Itertools;
-use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
+mod interaction;
+mod preprocessed;
+mod trace;
+mod composition;
 
-pub struct PreprocessedTraceSampleResultVar {
+pub use interaction::*;
+pub use preprocessed::*;
+pub use trace::*;
+pub use composition::*;
+
+use circle_plonk_dsl_constraint_system::{ConstraintSystemRef, var::AllocVar};
+use circle_plonk_dsl_primitives::{CM31Var, CirclePointQM31Var, M31Var, QM31Var};
+use indexmap::IndexMap;
+use stwo::core::{circle::CirclePoint, fields::{ComplexConjugate, m31::M31, qm31::QM31}};
+use stwo_cairo_common::{preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE, prover_types::simd::LOG_N_LANES};
+use num_traits::Zero;
+use std::ops::Neg;
+
+pub struct AnswerAccumulator {
     pub cs: ConstraintSystemRef,
-    pub seq_25: OptionVar<QM31Var>,
-    pub seq_24: OptionVar<QM31Var>,
-    pub seq_23: OptionVar<QM31Var>,
-    pub seq_22: OptionVar<QM31Var>,
-    pub seq_21: OptionVar<QM31Var>,
-    pub seq_20: QM31Var, /* used by range check 20, 20b, 20c, 20d, 20e, 20f, 20g, 20h */
-    pub bitwise_xor_10_0: QM31Var,
-    pub bitwise_xor_10_1: QM31Var,
-    pub bitwise_xor_10_2: QM31Var,
-    pub seq_19: OptionVar<QM31Var>,
-    pub seq_18: QM31Var, /* used by range check 18, 18b */
-    pub bitwise_xor_9_0: QM31Var,
-    pub bitwise_xor_9_1: QM31Var,
-    pub bitwise_xor_9_2: QM31Var,
-    pub range_check_9_9_column_0: QM31Var,
-    pub range_check_9_9_column_1: QM31Var,
-    pub range_check_3_6_6_3_column_0: QM31Var,
-    pub range_check_3_6_6_3_column_1: QM31Var,
-    pub range_check_3_6_6_3_column_2: QM31Var,
-    pub range_check_3_6_6_3_column_3: QM31Var,
-    pub seq_17: OptionVar<QM31Var>,
-    pub seq_16: OptionVar<QM31Var>,
-    pub bitwise_xor_8_0: QM31Var,
-    pub bitwise_xor_8_1: QM31Var,
-    pub bitwise_xor_8_2: QM31Var,
-    pub range_check_4_4_4_4_column_0: QM31Var,
-    pub range_check_4_4_4_4_column_1: QM31Var,
-    pub range_check_4_4_4_4_column_2: QM31Var,
-    pub range_check_4_4_4_4_column_3: QM31Var,
-    pub seq_15: OptionVar<QM31Var>,
-    pub range_check_3_3_3_3_3_column_0: QM31Var,
-    pub range_check_3_3_3_3_3_column_1: QM31Var,
-    pub range_check_3_3_3_3_3_column_2: QM31Var,
-    pub range_check_3_3_3_3_3_column_3: QM31Var,
-    pub range_check_3_3_3_3_3_column_4: QM31Var,
-    pub seq_14: OptionVar<QM31Var>,
-    pub bitwise_xor_7_0: QM31Var,
-    pub bitwise_xor_7_1: QM31Var,
-    pub bitwise_xor_7_2: QM31Var,
-    pub range_check_7_2_5_column_0: QM31Var,
-    pub range_check_7_2_5_column_1: QM31Var,
-    pub range_check_7_2_5_column_2: QM31Var,
-    pub seq_13: OptionVar<QM31Var>,
-    pub seq_12: QM31Var, /* used by range check 12 */
-    pub seq_11: QM31Var, /* used by range check 11 */
-    pub seq_10: OptionVar<QM31Var>,
-    pub seq_9: OptionVar<QM31Var>,
-    pub range_check_5_4_column_0: QM31Var,
-    pub range_check_5_4_column_1: QM31Var,
-    pub seq_8: QM31Var, /* used by range check 8 */
-    pub bitwise_xor_4_0: QM31Var,
-    pub bitwise_xor_4_1: QM31Var,
-    pub bitwise_xor_4_2: QM31Var,
-    pub range_check_4_4_column_0: QM31Var,
-    pub range_check_4_4_column_1: QM31Var,
-    pub seq_7: OptionVar<QM31Var>,
-    pub range_check_4_3_column_0: QM31Var,
-    pub range_check_4_3_column_1: QM31Var,
-    pub seq_6: QM31Var, /* used by range check 6 */
-    pub seq_5: OptionVar<QM31Var>,
-    pub seq_4: QM31Var, /* used by blake_round_sigma */
-    pub blake_sigma_0: QM31Var,
-    pub blake_sigma_1: QM31Var,
-    pub blake_sigma_2: QM31Var,
-    pub blake_sigma_3: QM31Var,
-    pub blake_sigma_4: QM31Var,
-    pub blake_sigma_5: QM31Var,
-    pub blake_sigma_6: QM31Var,
-    pub blake_sigma_7: QM31Var,
-    pub blake_sigma_8: QM31Var,
-    pub blake_sigma_9: QM31Var,
-    pub blake_sigma_10: QM31Var,
-    pub blake_sigma_11: QM31Var,
-    pub blake_sigma_12: QM31Var,
-    pub blake_sigma_13: QM31Var,
-    pub blake_sigma_14: QM31Var,
-    pub blake_sigma_15: QM31Var,
+    pub random_coeff: QM31Var,
+    pub map: IndexMap<usize, (QM31Var, QM31Var)>, 
 }
 
-impl PreprocessedTraceSampleResultVar {
-    pub fn new(
-        cs: &ConstraintSystemRef,
-        sampled_values: &Vec<Vec<QM31Var>>,
-        is_preprocessed_trace_present: &Vec<BitVar>,
-    ) -> Self {
-        let sampled_values = sampled_values.iter().map(|v| &v[0]).collect_vec();
+impl AnswerAccumulator {
+    pub fn new(cs: &ConstraintSystemRef, random_coeff: &QM31Var) -> Self {
+        let mut map = IndexMap::new();
+        for i in (LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE).rev() {
+            map.insert(i as usize, (
+                QM31Var::zero(&cs),
+                QM31Var::new_constant(&cs,
+                    &QM31::from_m31(M31::zero(), M31::zero(), M31::from(2).neg(), M31::zero())
+                )
+            ));
+        }
+        Self { cs: cs.clone(), random_coeff: random_coeff.clone(), map }
+    }
 
-        Self {
-            cs: cs.clone(),
-            seq_25: OptionVar::new(
-                is_preprocessed_trace_present[0].clone(),
-                sampled_values[0].clone(),
-            ),
-            seq_24: OptionVar::new(
-                is_preprocessed_trace_present[1].clone(),
-                sampled_values[1].clone(),
-            ),
-            seq_23: OptionVar::new(
-                is_preprocessed_trace_present[2].clone(),
-                sampled_values[2].clone(),
-            ),
-            seq_22: OptionVar::new(
-                is_preprocessed_trace_present[3].clone(),
-                sampled_values[3].clone(),
-            ),
-            seq_21: OptionVar::new(
-                is_preprocessed_trace_present[4].clone(),
-                sampled_values[4].clone(),
-            ),
-            seq_20: sampled_values[5].clone(),
-            bitwise_xor_10_0: sampled_values[6].clone(),
-            bitwise_xor_10_1: sampled_values[7].clone(),
-            bitwise_xor_10_2: sampled_values[8].clone(),
-            seq_19: OptionVar::new(
-                is_preprocessed_trace_present[9].clone(),
-                sampled_values[9].clone(),
-            ),
-            seq_18: sampled_values[10].clone(),
-            bitwise_xor_9_0: sampled_values[11].clone(),
-            bitwise_xor_9_1: sampled_values[12].clone(),
-            bitwise_xor_9_2: sampled_values[13].clone(),
-            range_check_9_9_column_0: sampled_values[14].clone(),
-            range_check_9_9_column_1: sampled_values[15].clone(),
-            range_check_3_6_6_3_column_0: sampled_values[16].clone(),
-            range_check_3_6_6_3_column_1: sampled_values[17].clone(),
-            range_check_3_6_6_3_column_2: sampled_values[18].clone(),
-            range_check_3_6_6_3_column_3: sampled_values[19].clone(),
-            seq_17: OptionVar::new(
-                is_preprocessed_trace_present[20].clone(),
-                sampled_values[20].clone(),
-            ),
-            seq_16: OptionVar::new(
-                is_preprocessed_trace_present[21].clone(),
-                sampled_values[21].clone(),
-            ),
-            bitwise_xor_8_0: sampled_values[22].clone(),
-            bitwise_xor_8_1: sampled_values[23].clone(),
-            bitwise_xor_8_2: sampled_values[24].clone(),
-            range_check_4_4_4_4_column_0: sampled_values[25].clone(),
-            range_check_4_4_4_4_column_1: sampled_values[26].clone(),
-            range_check_4_4_4_4_column_2: sampled_values[27].clone(),
-            range_check_4_4_4_4_column_3: sampled_values[28].clone(),
-            seq_15: OptionVar::new(
-                is_preprocessed_trace_present[29].clone(),
-                sampled_values[29].clone(),
-            ),
-            range_check_3_3_3_3_3_column_0: sampled_values[30].clone(),
-            range_check_3_3_3_3_3_column_1: sampled_values[31].clone(),
-            range_check_3_3_3_3_3_column_2: sampled_values[32].clone(),
-            range_check_3_3_3_3_3_column_3: sampled_values[33].clone(),
-            range_check_3_3_3_3_3_column_4: sampled_values[34].clone(),
-            seq_14: OptionVar::new(
-                is_preprocessed_trace_present[35].clone(),
-                sampled_values[35].clone(),
-            ),
-            bitwise_xor_7_0: sampled_values[36].clone(),
-            bitwise_xor_7_1: sampled_values[37].clone(),
-            bitwise_xor_7_2: sampled_values[38].clone(),
-            range_check_7_2_5_column_0: sampled_values[39].clone(),
-            range_check_7_2_5_column_1: sampled_values[40].clone(),
-            range_check_7_2_5_column_2: sampled_values[41].clone(),
-            seq_13: OptionVar::new(
-                is_preprocessed_trace_present[42].clone(),
-                sampled_values[42].clone(),
-            ),
-            seq_12: sampled_values[43].clone(),
-            seq_11: sampled_values[44].clone(),
-            seq_10: OptionVar::new(
-                is_preprocessed_trace_present[45].clone(),
-                sampled_values[45].clone(),
-            ),
-            seq_9: OptionVar::new(
-                is_preprocessed_trace_present[46].clone(),
-                sampled_values[46].clone(),
-            ),
-            range_check_5_4_column_0: sampled_values[47].clone(),
-            range_check_5_4_column_1: sampled_values[48].clone(),
-            seq_8: sampled_values[49].clone(),
-            bitwise_xor_4_0: sampled_values[50].clone(),
-            bitwise_xor_4_1: sampled_values[51].clone(),
-            bitwise_xor_4_2: sampled_values[52].clone(),
-            range_check_4_4_column_0: sampled_values[53].clone(),
-            range_check_4_4_column_1: sampled_values[54].clone(),
-            seq_7: OptionVar::new(
-                is_preprocessed_trace_present[55].clone(),
-                sampled_values[55].clone(),
-            ),
-            range_check_4_3_column_0: sampled_values[56].clone(),
-            range_check_4_3_column_1: sampled_values[57].clone(),
-            seq_6: sampled_values[58].clone(),
-            seq_5: OptionVar::new(
-                is_preprocessed_trace_present[89].clone(),
-                sampled_values[89].clone(),
-            ),
-            seq_4: sampled_values[90].clone(),
-            blake_sigma_0: sampled_values[91].clone(),
-            blake_sigma_1: sampled_values[92].clone(),
-            blake_sigma_2: sampled_values[93].clone(),
-            blake_sigma_3: sampled_values[94].clone(),
-            blake_sigma_4: sampled_values[95].clone(),
-            blake_sigma_5: sampled_values[96].clone(),
-            blake_sigma_6: sampled_values[97].clone(),
-            blake_sigma_7: sampled_values[98].clone(),
-            blake_sigma_8: sampled_values[99].clone(),
-            blake_sigma_9: sampled_values[100].clone(),
-            blake_sigma_10: sampled_values[101].clone(),
-            blake_sigma_11: sampled_values[102].clone(),
-            blake_sigma_12: sampled_values[103].clone(),
-            blake_sigma_13: sampled_values[104].clone(),
-            blake_sigma_14: sampled_values[105].clone(),
-            blake_sigma_15: sampled_values[106].clone(),
+    pub fn update_fix_log_size(&mut self, log_size: usize, column_results: &[QM31Var]) {
+        let (answer, multiplier) = self.map.get_mut(&log_size).unwrap();
+
+        for result in column_results.iter() {
+            *answer = &*answer + &(result * &*multiplier);
+            *multiplier = &*multiplier * &self.random_coeff;
         }
     }
-}
 
-pub struct TraceSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub opcodes: OpcodesTraceSampleResultVar,
-    pub verify_instruction: [QM31Var; components::verify_instruction::N_TRACE_COLUMNS],
-    pub blake: BlakeTraceSampleResultVar,
-    pub range_check_128_builtin:
-        [QM31Var; components::range_check_builtin_bits_128::N_TRACE_COLUMNS],
-    pub memory_address_to_id: [QM31Var; components::memory_address_to_id::N_TRACE_COLUMNS],
-    pub memory_id_to_big_big: [QM31Var; components::memory_id_to_big::BIG_N_COLUMNS],
-    pub memory_id_to_big_small: [QM31Var; components::memory_id_to_big::SMALL_N_COLUMNS],
-    pub range_checks: RangeChecksTraceSampleResultVar,
-    pub verify_bitwise: VerifyBitwiseTraceSampleResultVar,
-}
+    pub fn update(&mut self, log_size: &M31Var, column_results: &[QM31Var]) {
+        let cs = &self.cs;
 
-/// Helper function to extract a fixed-size array from a slice
-fn extract_array<const N: usize>(slice: &[&QM31Var], offset: &mut usize) -> [QM31Var; N] {
-    let arr = std::array::from_fn(|i| slice[*offset + i].clone());
-    *offset += N;
-    arr
-}
+        let mut bits = vec![];
+        for (k, _) in self.map.iter() {
+            let bit = log_size.is_eq(&M31Var::new_constant(cs, &M31::from(*k)));
+            bits.push(bit);
+        }
 
-impl TraceSampleResultVar {
-    pub fn new(cs: &ConstraintSystemRef, sampled_values: &Vec<Vec<QM31Var>>) -> Self {
-        let sampled_values: Vec<&QM31Var> = sampled_values.iter().map(|v| &v[0]).collect();
-        let mut offset = 0;
+        let mut entry_answer = QM31Var::zero(cs);
+        let mut entry_multiplier = QM31Var::zero(cs);
 
-        // Allocate in the exact order as defined in TraceSampleResultVar
-        let opcodes = allocate_opcodes(cs, &sampled_values, &mut offset);
-        let verify_instruction = extract_array::<{ components::verify_instruction::N_TRACE_COLUMNS }>(
-            &sampled_values,
-            &mut offset,
-        );
-        let blake = allocate_blake(cs, &sampled_values, &mut offset);
-        let range_check_128_builtin = extract_array::<
-            { components::range_check_builtin_bits_128::N_TRACE_COLUMNS },
-        >(&sampled_values, &mut offset);
-        let memory_address_to_id = extract_array::<
-            { components::memory_address_to_id::N_TRACE_COLUMNS },
-        >(&sampled_values, &mut offset);
-        let memory_id_to_big_big = extract_array::<{ components::memory_id_to_big::BIG_N_COLUMNS }>(
-            &sampled_values,
-            &mut offset,
-        );
-        let memory_id_to_big_small = extract_array::<
-            { components::memory_id_to_big::SMALL_N_COLUMNS },
-        >(&sampled_values, &mut offset);
-        let range_checks = allocate_range_checks(cs, &sampled_values, &mut offset);
-        let verify_bitwise = allocate_verify_bitwise(cs, &sampled_values, &mut offset);
+        for ((_, (answer, multiplier)), bit) in self.map.iter().zip(bits.iter()) {
+            entry_answer = &entry_answer + &(answer * &bit.0);
+            entry_multiplier = &entry_multiplier + &(multiplier * &bit.0);
+        }
 
-        assert_eq!(
-            offset,
-            sampled_values.len(),
-            "Not all sampled values were consumed"
-        );
+        for result in column_results.iter() {
+            entry_answer = &entry_answer + &(result * &entry_multiplier);
+            entry_multiplier = &entry_multiplier * &self.random_coeff;
+        }
 
-        Self {
-            cs: cs.clone(),
-            opcodes,
-            verify_instruction,
-            blake,
-            range_check_128_builtin,
-            memory_address_to_id,
-            memory_id_to_big_big,
-            memory_id_to_big_small,
-            range_checks,
-            verify_bitwise,
+        for ((_, v), bit) in self.map.iter_mut().zip(bits.iter()) {
+            v.0 = QM31Var::select(&v.0, &entry_answer, bit);
+            v.1 = QM31Var::select(&v.1, &entry_multiplier, bit);
         }
     }
-}
 
-/// Allocate OpcodesTraceSampleResultVar from slice
-fn allocate_opcodes(
-    cs: &ConstraintSystemRef,
-    slice: &[&QM31Var],
-    offset: &mut usize,
-) -> OpcodesTraceSampleResultVar {
-    OpcodesTraceSampleResultVar {
-        cs: cs.clone(),
-        add: extract_array::<{ components::add_opcode::N_TRACE_COLUMNS }>(slice, offset),
-        add_small: extract_array::<{ components::add_opcode_small::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        add_ap: extract_array::<{ components::add_ap_opcode::N_TRACE_COLUMNS }>(slice, offset),
-        assert_eq: extract_array::<{ components::assert_eq_opcode::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        assert_eq_imm: extract_array::<{ components::assert_eq_opcode_imm::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        assert_eq_double_deref: extract_array::<
-            { components::assert_eq_opcode_double_deref::N_TRACE_COLUMNS },
-        >(slice, offset),
-        blake: extract_array::<{ components::blake_compress_opcode::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        call: extract_array::<{ components::call_opcode_abs::N_TRACE_COLUMNS }>(slice, offset),
-        call_rel_imm: extract_array::<{ components::call_opcode_rel_imm::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        jnz: extract_array::<{ components::jnz_opcode_non_taken::N_TRACE_COLUMNS }>(slice, offset),
-        jnz_taken: extract_array::<{ components::jnz_opcode_taken::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        jump_rel: extract_array::<{ components::jump_opcode_rel::N_TRACE_COLUMNS }>(slice, offset),
-        jump_rel_imm: extract_array::<{ components::jump_opcode_rel_imm::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        mul: extract_array::<{ components::mul_opcode::N_TRACE_COLUMNS }>(slice, offset),
-        mul_small: extract_array::<{ components::mul_opcode_small::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        qm31: extract_array::<{ components::qm_31_add_mul_opcode::N_TRACE_COLUMNS }>(slice, offset),
-        ret: extract_array::<{ components::ret_opcode::N_TRACE_COLUMNS }>(slice, offset),
+    pub fn finalize(&self) -> IndexMap<usize, QM31Var> {
+        self.map.iter().map(|(k, (answer, _))| (*k, answer.clone())).collect()
     }
 }
 
-/// Allocate BlakeTraceSampleResultVar from slice
-fn allocate_blake(
-    cs: &ConstraintSystemRef,
-    slice: &[&QM31Var],
-    offset: &mut usize,
-) -> BlakeTraceSampleResultVar {
-    BlakeTraceSampleResultVar {
-        cs: cs.clone(),
-        round: extract_array::<{ components::blake_round::N_TRACE_COLUMNS }>(slice, offset),
-        g: extract_array::<{ components::blake_g::N_TRACE_COLUMNS }>(slice, offset),
-        sigma: extract_array::<{ components::blake_round_sigma::N_TRACE_COLUMNS }>(slice, offset),
-        triple_xor_32: extract_array::<{ components::triple_xor_32::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        verify_bitwise_xor_12: extract_array::<
-            { components::verify_bitwise_xor_12::N_TRACE_COLUMNS },
-        >(slice, offset),
-    }
-}
-
-/// Allocate RangeChecksTraceSampleResultVar from slice
-fn allocate_range_checks(
-    cs: &ConstraintSystemRef,
-    slice: &[&QM31Var],
-    offset: &mut usize,
-) -> RangeChecksTraceSampleResultVar {
-    RangeChecksTraceSampleResultVar {
-        cs: cs.clone(),
-        range_check_6: extract_array::<{ components::range_check_6::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_8: extract_array::<{ components::range_check_8::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_11: extract_array::<{ components::range_check_11::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_12: extract_array::<{ components::range_check_12::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_18: extract_array::<{ components::range_check_18::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_18_b: extract_array::<{ components::range_check_18_b::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20: extract_array::<{ components::range_check_20::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_b: extract_array::<{ components::range_check_20_b::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_c: extract_array::<{ components::range_check_20_c::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_d: extract_array::<{ components::range_check_20_d::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_e: extract_array::<{ components::range_check_20_e::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_f: extract_array::<{ components::range_check_20_f::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_g: extract_array::<{ components::range_check_20_g::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_20_h: extract_array::<{ components::range_check_20_h::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_4_3: extract_array::<{ components::range_check_4_3::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_4_4: extract_array::<{ components::range_check_4_4::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_5_4: extract_array::<{ components::range_check_5_4::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9: extract_array::<{ components::range_check_9_9::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_b: extract_array::<{ components::range_check_9_9_b::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_c: extract_array::<{ components::range_check_9_9_c::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_d: extract_array::<{ components::range_check_9_9_d::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_e: extract_array::<{ components::range_check_9_9_e::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_f: extract_array::<{ components::range_check_9_9_f::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_g: extract_array::<{ components::range_check_9_9_g::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_9_9_h: extract_array::<{ components::range_check_9_9_h::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_7_2_5: extract_array::<{ components::range_check_7_2_5::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_3_6_6_3: extract_array::<{ components::range_check_3_6_6_3::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_4_4_4_4: extract_array::<{ components::range_check_4_4_4_4::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        range_check_3_3_3_3_3: extract_array::<
-            { components::range_check_3_3_3_3_3::N_TRACE_COLUMNS },
-        >(slice, offset),
-    }
-}
-
-/// Allocate VerifyBitwiseTraceSampleResultVar from slice
-fn allocate_verify_bitwise(
-    cs: &ConstraintSystemRef,
-    slice: &[&QM31Var],
-    offset: &mut usize,
-) -> VerifyBitwiseTraceSampleResultVar {
-    VerifyBitwiseTraceSampleResultVar {
-        cs: cs.clone(),
-        verify_bitwise_xor_4: extract_array::<{ components::verify_bitwise_xor_4::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        verify_bitwise_xor_7: extract_array::<{ components::verify_bitwise_xor_7::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        verify_bitwise_xor_8: extract_array::<{ components::verify_bitwise_xor_8::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-        verify_bitwise_xor_8_b: extract_array::<
-            { components::verify_bitwise_xor_8_b::N_TRACE_COLUMNS },
-        >(slice, offset),
-        verify_bitwise_xor_9: extract_array::<{ components::verify_bitwise_xor_9::N_TRACE_COLUMNS }>(
-            slice, offset,
-        ),
-    }
-}
-
-pub struct OpcodesTraceSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub add: [QM31Var; components::add_opcode::N_TRACE_COLUMNS],
-    pub add_small: [QM31Var; components::add_opcode_small::N_TRACE_COLUMNS],
-    pub add_ap: [QM31Var; components::add_ap_opcode::N_TRACE_COLUMNS],
-    pub assert_eq: [QM31Var; components::assert_eq_opcode::N_TRACE_COLUMNS],
-    pub assert_eq_imm: [QM31Var; components::assert_eq_opcode_imm::N_TRACE_COLUMNS],
-    pub assert_eq_double_deref:
-        [QM31Var; components::assert_eq_opcode_double_deref::N_TRACE_COLUMNS],
-    pub blake: [QM31Var; components::blake_compress_opcode::N_TRACE_COLUMNS],
-    pub call: [QM31Var; components::call_opcode_abs::N_TRACE_COLUMNS],
-    pub call_rel_imm: [QM31Var; components::call_opcode_rel_imm::N_TRACE_COLUMNS],
-    pub jnz: [QM31Var; components::jnz_opcode_non_taken::N_TRACE_COLUMNS],
-    pub jnz_taken: [QM31Var; components::jnz_opcode_taken::N_TRACE_COLUMNS],
-    pub jump_rel: [QM31Var; components::jump_opcode_rel::N_TRACE_COLUMNS],
-    pub jump_rel_imm: [QM31Var; components::jump_opcode_rel_imm::N_TRACE_COLUMNS],
-    pub mul: [QM31Var; components::mul_opcode::N_TRACE_COLUMNS],
-    pub mul_small: [QM31Var; components::mul_opcode_small::N_TRACE_COLUMNS],
-    pub qm31: [QM31Var; components::qm_31_add_mul_opcode::N_TRACE_COLUMNS],
-    pub ret: [QM31Var; components::ret_opcode::N_TRACE_COLUMNS],
-}
-
-pub struct BlakeTraceSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub round: [QM31Var; components::blake_round::N_TRACE_COLUMNS],
-    pub g: [QM31Var; components::blake_g::N_TRACE_COLUMNS],
-    pub sigma: [QM31Var; components::blake_round_sigma::N_TRACE_COLUMNS],
-    pub triple_xor_32: [QM31Var; components::triple_xor_32::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_12: [QM31Var; components::verify_bitwise_xor_12::N_TRACE_COLUMNS],
-}
-
-pub struct RangeChecksTraceSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub range_check_6: [QM31Var; components::range_check_6::N_TRACE_COLUMNS],
-    pub range_check_8: [QM31Var; components::range_check_8::N_TRACE_COLUMNS],
-    pub range_check_11: [QM31Var; components::range_check_11::N_TRACE_COLUMNS],
-    pub range_check_12: [QM31Var; components::range_check_12::N_TRACE_COLUMNS],
-    pub range_check_18: [QM31Var; components::range_check_18::N_TRACE_COLUMNS],
-    pub range_check_18_b: [QM31Var; components::range_check_18_b::N_TRACE_COLUMNS],
-    pub range_check_20: [QM31Var; components::range_check_20::N_TRACE_COLUMNS],
-    pub range_check_20_b: [QM31Var; components::range_check_20_b::N_TRACE_COLUMNS],
-    pub range_check_20_c: [QM31Var; components::range_check_20_c::N_TRACE_COLUMNS],
-    pub range_check_20_d: [QM31Var; components::range_check_20_d::N_TRACE_COLUMNS],
-    pub range_check_20_e: [QM31Var; components::range_check_20_e::N_TRACE_COLUMNS],
-    pub range_check_20_f: [QM31Var; components::range_check_20_f::N_TRACE_COLUMNS],
-    pub range_check_20_g: [QM31Var; components::range_check_20_g::N_TRACE_COLUMNS],
-    pub range_check_20_h: [QM31Var; components::range_check_20_h::N_TRACE_COLUMNS],
-    pub range_check_4_3: [QM31Var; components::range_check_4_3::N_TRACE_COLUMNS],
-    pub range_check_4_4: [QM31Var; components::range_check_4_4::N_TRACE_COLUMNS],
-    pub range_check_5_4: [QM31Var; components::range_check_5_4::N_TRACE_COLUMNS],
-    pub range_check_9_9: [QM31Var; components::range_check_9_9::N_TRACE_COLUMNS],
-    pub range_check_9_9_b: [QM31Var; components::range_check_9_9_b::N_TRACE_COLUMNS],
-    pub range_check_9_9_c: [QM31Var; components::range_check_9_9_c::N_TRACE_COLUMNS],
-    pub range_check_9_9_d: [QM31Var; components::range_check_9_9_d::N_TRACE_COLUMNS],
-    pub range_check_9_9_e: [QM31Var; components::range_check_9_9_e::N_TRACE_COLUMNS],
-    pub range_check_9_9_f: [QM31Var; components::range_check_9_9_f::N_TRACE_COLUMNS],
-    pub range_check_9_9_g: [QM31Var; components::range_check_9_9_g::N_TRACE_COLUMNS],
-    pub range_check_9_9_h: [QM31Var; components::range_check_9_9_h::N_TRACE_COLUMNS],
-    pub range_check_7_2_5: [QM31Var; components::range_check_7_2_5::N_TRACE_COLUMNS],
-    pub range_check_3_6_6_3: [QM31Var; components::range_check_3_6_6_3::N_TRACE_COLUMNS],
-    pub range_check_4_4_4_4: [QM31Var; components::range_check_4_4_4_4::N_TRACE_COLUMNS],
-    pub range_check_3_3_3_3_3: [QM31Var; components::range_check_3_3_3_3_3::N_TRACE_COLUMNS],
-}
-
-pub struct VerifyBitwiseTraceSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub verify_bitwise_xor_4: [QM31Var; components::verify_bitwise_xor_4::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_7: [QM31Var; components::verify_bitwise_xor_7::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_8: [QM31Var; components::verify_bitwise_xor_8::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_8_b: [QM31Var; components::verify_bitwise_xor_8_b::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_9: [QM31Var; components::verify_bitwise_xor_9::N_TRACE_COLUMNS],
-}
-
-pub struct InteractionEntryVar<const N: usize> {
-    pub data: [[QM31Var; SECURE_EXTENSION_DEGREE]; N],
-    pub presum: [QM31Var; SECURE_EXTENSION_DEGREE],
-}
-
-pub struct InteractionSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub opcodes: OpcodesInteractionSampleResultVar,
-    pub verify_instruction: InteractionEntryVar<3>,
-    pub blake: BlakeInteractionSampleResultVar,
-    pub range_check_128_builtin: InteractionEntryVar<1>,
-    pub memory_address_to_id: InteractionEntryVar<8>,
-    pub memory_id_to_big_big: InteractionEntryVar<8>,
-    pub memory_id_to_big_small: InteractionEntryVar<3>,
-    pub range_checks: RangeChecksInteractionSampleResultVar,
-    pub verify_bitwise: VerifyBitwiseInteractionSampleResultVar,
-}
-
-pub struct OpcodesInteractionSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub add: InteractionEntryVar<5>,
-    pub add_small: InteractionEntryVar<5>,
-    pub add_ap: InteractionEntryVar<4>,
-    pub assert_eq: InteractionEntryVar<3>,
-    pub assert_eq_imm: InteractionEntryVar<3>,
-    pub assert_eq_double_deref: InteractionEntryVar<4>,
-    pub blake: InteractionEntryVar<37>,
-    pub call: InteractionEntryVar<5>,
-    pub call_rel_imm: InteractionEntryVar<5>,
-    pub jnz: InteractionEntryVar<3>,
-    pub jnz_taken: InteractionEntryVar<4>,
-    pub jump_rel: InteractionEntryVar<3>,
-    pub jump_rel_imm: InteractionEntryVar<3>,
-    pub mul: InteractionEntryVar<19>,
-    pub mul_small: InteractionEntryVar<6>,
-    pub qm31: InteractionEntryVar<6>,
-    pub ret: InteractionEntryVar<4>,
-}
-
-pub struct BlakeInteractionSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub round: InteractionEntryVar<30>,
-    pub g: InteractionEntryVar<9>,
-    pub sigma: InteractionEntryVar<1>,
-    pub triple_xor_32: InteractionEntryVar<5>,
-    pub verify_bitwise_xor_12: InteractionEntryVar<8>,
-}
-
-pub struct RangeChecksInteractionSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub range_check_6: InteractionEntryVar<1>,
-    pub range_check_8: InteractionEntryVar<1>,
-    pub range_check_11: InteractionEntryVar<1>,
-    pub range_check_12: InteractionEntryVar<1>,
-    pub range_check_18: InteractionEntryVar<1>,
-    pub range_check_18_b: InteractionEntryVar<1>,
-    pub range_check_20: InteractionEntryVar<1>,
-    pub range_check_20_b: InteractionEntryVar<1>,
-    pub range_check_20_c: InteractionEntryVar<1>,
-    pub range_check_20_d: InteractionEntryVar<1>,
-    pub range_check_20_e: InteractionEntryVar<1>,
-    pub range_check_20_f: InteractionEntryVar<1>,
-    pub range_check_20_g: InteractionEntryVar<1>,
-    pub range_check_20_h: InteractionEntryVar<1>,
-    pub range_check_4_3: InteractionEntryVar<1>,
-    pub range_check_4_4: InteractionEntryVar<1>,
-    pub range_check_5_4: InteractionEntryVar<1>,
-    pub range_check_9_9: InteractionEntryVar<1>,
-    pub range_check_9_9_b: InteractionEntryVar<1>,
-    pub range_check_9_9_c: InteractionEntryVar<1>,
-    pub range_check_9_9_d: InteractionEntryVar<1>,
-    pub range_check_9_9_e: InteractionEntryVar<1>,
-    pub range_check_9_9_f: InteractionEntryVar<1>,
-    pub range_check_9_9_g: InteractionEntryVar<1>,
-    pub range_check_9_9_h: InteractionEntryVar<1>,
-    pub range_check_7_2_5: InteractionEntryVar<1>,
-    pub range_check_3_6_6_3: InteractionEntryVar<1>,
-    pub range_check_4_4_4_4: InteractionEntryVar<1>,
-    pub range_check_3_3_3_3_3: InteractionEntryVar<1>,
-}
-
-pub struct VerifyBitwiseInteractionSampleResultVar {
-    pub cs: ConstraintSystemRef,
-    pub verify_bitwise_xor_4: InteractionEntryVar<1>,
-    pub verify_bitwise_xor_7: InteractionEntryVar<1>,
-    pub verify_bitwise_xor_8: InteractionEntryVar<1>,
-    pub verify_bitwise_xor_8_b: InteractionEntryVar<1>,
-    pub verify_bitwise_xor_9: InteractionEntryVar<1>,
-}
-
-/// Helper function to allocate InteractionEntryVar<N> from sampled_values[2]
-fn allocate_interaction_entry<const N: usize>(
-    sampled_values: &Vec<Vec<QM31Var>>,
-    offset: &mut usize,
-) -> InteractionEntryVar<N> {
-    let data = std::array::from_fn(|i| {
-        let idx = *offset + 4 * i;
-        [
-            sampled_values[idx][0].clone(),
-            sampled_values[idx + 1][0].clone(),
-            sampled_values[idx + 2][0].clone(),
-            sampled_values[idx + 3][0].clone(),
-        ]
-    });
-
-    let last = *offset + 4 * (N - 1);
-    let presum = [
-        sampled_values[last][1].clone(),
-        sampled_values[last + 1][1].clone(),
-        sampled_values[last + 2][1].clone(),
-        sampled_values[last + 3][1].clone(),
-    ];
-
-    *offset += 4 * N;
-
-    InteractionEntryVar { data, presum }
-}
-
-impl InteractionSampleResultVar {
-    pub fn new(cs: &ConstraintSystemRef, sampled_values: &Vec<Vec<QM31Var>>) -> Self {
-        let mut offset = 0;
-
-        // Allocate in the exact order as defined in InteractionSampleResultVar
-        let opcodes = allocate_opcodes_interaction(cs, sampled_values, &mut offset);
-        let verify_instruction = allocate_interaction_entry::<3>(sampled_values, &mut offset);
-        let blake = allocate_blake_interaction(cs, sampled_values, &mut offset);
-        let range_check_128_builtin = allocate_interaction_entry::<1>(sampled_values, &mut offset);
-        let memory_address_to_id = allocate_interaction_entry::<8>(sampled_values, &mut offset);
-        let memory_id_to_big_big = allocate_interaction_entry::<8>(sampled_values, &mut offset);
-        let memory_id_to_big_small = allocate_interaction_entry::<3>(sampled_values, &mut offset);
-        let range_checks = allocate_range_checks_interaction(cs, sampled_values, &mut offset);
-        let verify_bitwise = allocate_verify_bitwise_interaction(cs, sampled_values, &mut offset);
-
-        assert_eq!(
-            offset,
-            sampled_values.len(),
-            "Not all sampled values were consumed"
-        );
-
-        Self {
-            cs: cs.clone(),
-            opcodes,
-            verify_instruction,
-            blake,
-            range_check_128_builtin,
-            memory_address_to_id,
-            memory_id_to_big_big,
-            memory_id_to_big_small,
-            range_checks,
-            verify_bitwise,
+pub fn complex_conjugate_line_coeffs_var(
+    point: &CirclePointQM31Var,
+    value: &QM31Var,
+) -> [CM31Var; 3] {
+    assert_ne!(
+        point.y.value(),
+        point.y.value().complex_conjugate(),
+        "Cannot evaluate a line with a single point ({:?}).",
+        CirclePoint {
+            x: point.x.value(),
+            y: point.y.value()
         }
-    }
+    );
+
+    let [value0, value1] = value.decompose_cm31();
+    let [y0, y1] = point.y.decompose_cm31();
+
+    let a = value1.clone();
+    let c = y1.clone();
+    let b = &(&value0 * &y1) - &(&value1 * &y0);
+
+    [a, b, c]
 }
 
-/// Allocate OpcodesInteractionSampleResultVar from sampled_values[2]
-fn allocate_opcodes_interaction(
-    cs: &ConstraintSystemRef,
-    sampled_values: &Vec<Vec<QM31Var>>,
-    offset: &mut usize,
-) -> OpcodesInteractionSampleResultVar {
-    OpcodesInteractionSampleResultVar {
-        cs: cs.clone(),
-        add: allocate_interaction_entry::<5>(sampled_values, offset),
-        add_small: allocate_interaction_entry::<5>(sampled_values, offset),
-        add_ap: allocate_interaction_entry::<4>(sampled_values, offset),
-        assert_eq: allocate_interaction_entry::<3>(sampled_values, offset),
-        assert_eq_imm: allocate_interaction_entry::<3>(sampled_values, offset),
-        assert_eq_double_deref: allocate_interaction_entry::<4>(sampled_values, offset),
-        blake: allocate_interaction_entry::<37>(sampled_values, offset),
-        call: allocate_interaction_entry::<5>(sampled_values, offset),
-        call_rel_imm: allocate_interaction_entry::<5>(sampled_values, offset),
-        jnz: allocate_interaction_entry::<3>(sampled_values, offset),
-        jnz_taken: allocate_interaction_entry::<4>(sampled_values, offset),
-        jump_rel: allocate_interaction_entry::<3>(sampled_values, offset),
-        jump_rel_imm: allocate_interaction_entry::<3>(sampled_values, offset),
-        mul: allocate_interaction_entry::<19>(sampled_values, offset),
-        mul_small: allocate_interaction_entry::<6>(sampled_values, offset),
-        qm31: allocate_interaction_entry::<6>(sampled_values, offset),
-        ret: allocate_interaction_entry::<4>(sampled_values, offset),
-    }
-}
-
-/// Allocate BlakeInteractionSampleResultVar from sampled_values[2]
-fn allocate_blake_interaction(
-    cs: &ConstraintSystemRef,
-    sampled_values: &Vec<Vec<QM31Var>>,
-    offset: &mut usize,
-) -> BlakeInteractionSampleResultVar {
-    BlakeInteractionSampleResultVar {
-        cs: cs.clone(),
-        round: allocate_interaction_entry::<30>(sampled_values, offset),
-        g: allocate_interaction_entry::<9>(sampled_values, offset),
-        sigma: allocate_interaction_entry::<1>(sampled_values, offset),
-        triple_xor_32: allocate_interaction_entry::<5>(sampled_values, offset),
-        verify_bitwise_xor_12: allocate_interaction_entry::<8>(sampled_values, offset),
-    }
-}
-
-/// Allocate RangeChecksInteractionSampleResultVar from sampled_values[2]
-fn allocate_range_checks_interaction(
-    cs: &ConstraintSystemRef,
-    sampled_values: &Vec<Vec<QM31Var>>,
-    offset: &mut usize,
-) -> RangeChecksInteractionSampleResultVar {
-    RangeChecksInteractionSampleResultVar {
-        cs: cs.clone(),
-        range_check_6: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_8: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_11: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_12: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_18: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_18_b: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_b: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_c: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_d: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_e: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_f: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_g: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_20_h: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_4_3: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_4_4: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_5_4: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_b: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_c: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_d: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_e: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_f: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_g: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_9_9_h: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_7_2_5: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_3_6_6_3: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_4_4_4_4: allocate_interaction_entry::<1>(sampled_values, offset),
-        range_check_3_3_3_3_3: allocate_interaction_entry::<1>(sampled_values, offset),
-    }
-}
-
-/// Allocate VerifyBitwiseInteractionSampleResultVar from sampled_values[2]
-fn allocate_verify_bitwise_interaction(
-    cs: &ConstraintSystemRef,
-    sampled_values: &Vec<Vec<QM31Var>>,
-    offset: &mut usize,
-) -> VerifyBitwiseInteractionSampleResultVar {
-    VerifyBitwiseInteractionSampleResultVar {
-        cs: cs.clone(),
-        verify_bitwise_xor_4: allocate_interaction_entry::<1>(sampled_values, offset),
-        verify_bitwise_xor_7: allocate_interaction_entry::<1>(sampled_values, offset),
-        verify_bitwise_xor_8: allocate_interaction_entry::<1>(sampled_values, offset),
-        verify_bitwise_xor_8_b: allocate_interaction_entry::<1>(sampled_values, offset),
-        verify_bitwise_xor_9: allocate_interaction_entry::<1>(sampled_values, offset),
-    }
-}

@@ -51,3 +51,17 @@ impl<T: AllocVar> AllocVar for (T, T) {
         (left, right)
     }
 }
+
+impl<T: Var, const N: usize> Var for [T; N] {
+    type Value = [T::Value; N];
+
+    fn cs(&self) -> ConstraintSystemRef {
+        self[0].cs()
+    }
+}
+
+impl<T: AllocVar, const N: usize> AllocVar for [T; N] {
+    fn new_variables(cs: &ConstraintSystemRef, value: &Self::Value, mode: AllocationMode) -> Self {
+        std::array::from_fn(|i| T::new_variables(cs, &value[i], mode))
+    }
+}
