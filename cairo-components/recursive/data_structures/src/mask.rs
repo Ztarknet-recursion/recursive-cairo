@@ -1,9 +1,7 @@
+use circle_plonk_dsl_primitives::{BitIntVar, LogSizeVar};
 use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
 
-use crate::{
-    claim::CairoClaimVar,
-    data_structures::{BitIntVar, LogSizeVar},
-};
+use crate::claim::CairoClaimVar;
 
 #[derive(Clone, Debug)]
 pub enum MaskVar {

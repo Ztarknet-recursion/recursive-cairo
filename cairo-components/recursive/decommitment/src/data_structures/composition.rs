@@ -5,8 +5,9 @@ use circle_plonk_dsl_constraint_system::{
 };
 use circle_plonk_dsl_primitives::{option::OptionVar, M31Var, Poseidon2HalfVar, QM31Var};
 use indexmap::IndexMap;
+use stwo::core::fields::m31::M31;
 
-use crate::utils::ColumnsHasherQM31Var;
+use crate::utils::{ColumnsHasherQM31Var, HashAccumulatorQM31CompressedVar};
 
 pub struct CompositionQueryResultVar(pub [QM31Var; 2]);
 
@@ -33,7 +34,25 @@ impl CompositionQueryResultVar {
     ) -> IndexMap<usize, OptionVar<Poseidon2HalfVar>> {
         let cs = self.0[0].cs();
         let mut columns_hasher = ColumnsHasherQM31Var::new(&cs);
-        columns_hasher.update(&log_size, &self.0);
+
+        let mut entry = HashAccumulatorQM31CompressedVar::new(&cs);
+
+        let mut bits = vec![];
+        for (k, _) in columns_hasher.map.iter() {
+            let bit = log_size.is_eq(&M31Var::new_constant(&cs, &M31::from(*k)));
+            bits.push(bit);
+        }
+        for ((_, v), bit) in columns_hasher.map.iter_mut().zip(bits.iter()) {
+            entry = HashAccumulatorQM31CompressedVar::select(&entry, v, bit);
+        }
+
+        let mut decompressed = entry.decompress();
+        decompressed.update(&self.0);
+        let compressed = decompressed.compress();
+        for ((_, v), bit) in columns_hasher.map.iter_mut().zip(bits.iter()) {
+            *v = HashAccumulatorQM31CompressedVar::select(v, &compressed, bit);
+        }
+
         columns_hasher.finalize()
     }
 }

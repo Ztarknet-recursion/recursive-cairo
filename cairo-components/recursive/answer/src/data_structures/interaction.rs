@@ -1,6 +1,10 @@
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
-use circle_plonk_dsl_primitives::QM31Var;
+use circle_plonk_dsl_primitives::{
+    oblivious_map::ObliviousMapVar, CM31Var, CirclePointQM31Var, LogSizeVar, QM31Var,
+};
 use stwo::core::fields::qm31::SECURE_EXTENSION_DEGREE;
+
+use crate::complex_conjugate_line_coeffs_var;
 
 pub struct InteractionEntryVar<const N: usize> {
     pub data: [[QM31Var; SECURE_EXTENSION_DEGREE]; N],
@@ -97,7 +101,7 @@ fn allocate_interaction_entry<const N: usize>(
     sampled_values: &Vec<Vec<QM31Var>>,
     offset: &mut usize,
 ) -> InteractionEntryVar<N> {
-    let data = std::array::from_fn(|i| {
+    let mut data = std::array::from_fn(|i| {
         let idx = *offset + 4 * i;
         [
             sampled_values[idx][0].clone(),
@@ -109,6 +113,13 @@ fn allocate_interaction_entry<const N: usize>(
 
     let last = *offset + 4 * (N - 1);
     let presum = [
+        sampled_values[last][0].clone(),
+        sampled_values[last + 1][0].clone(),
+        sampled_values[last + 2][0].clone(),
+        sampled_values[last + 3][0].clone(),
+    ];
+    // fix the last one
+    data[N - 1] = [
         sampled_values[last][1].clone(),
         sampled_values[last + 1][1].clone(),
         sampled_values[last + 2][1].clone(),
@@ -256,3 +267,30 @@ fn allocate_verify_bitwise_interaction(
     }
 }
 
+pub struct InteractionQuotientConstantsEntryVar<const N: usize> {
+    pub data: [[[CM31Var; 3]; SECURE_EXTENSION_DEGREE]; N],
+    pub presum: [[CM31Var; 3]; SECURE_EXTENSION_DEGREE],
+}
+
+impl<const N: usize> InteractionQuotientConstantsEntryVar<N> {
+    pub fn new(
+        log_size: &LogSizeVar,
+        oods_point: &CirclePointQM31Var,
+        oods_shifted_point_map: &ObliviousMapVar<CirclePointQM31Var>,
+        entry: &InteractionEntryVar<N>,
+    ) -> Self {
+        let data = std::array::from_fn(|i| {
+            std::array::from_fn(|j| {
+                complex_conjugate_line_coeffs_var(oods_point, &entry.data[i][j])
+            })
+        });
+
+        let shifted_point = oods_shifted_point_map.select(log_size);
+
+        let presum = std::array::from_fn(|i| {
+            complex_conjugate_line_coeffs_var(&shifted_point, &entry.presum[i])
+        });
+
+        Self { data, presum }
+    }
+}

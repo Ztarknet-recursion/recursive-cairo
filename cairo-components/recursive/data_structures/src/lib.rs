@@ -3,12 +3,12 @@ use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
+use circle_plonk_dsl_primitives::BitIntVar;
 use stwo::core::vcs::poseidon31_merkle::Poseidon31MerkleHasher;
 
 use crate::{interaction_claim::CairoInteractionClaimVar, stark_proof::StarkProofVar};
 
 pub mod claim;
-pub mod data_structures;
 pub mod evaluator;
 pub mod interaction_claim;
 pub mod lookup;
@@ -19,7 +19,6 @@ pub mod utils;
 
 // Re-export commonly used types
 pub use claim::*;
-pub use data_structures::BitIntVar;
 pub use public_data::PublicDataVar;
 
 #[derive(Debug, Clone)]

@@ -1,16 +1,23 @@
 pub mod data_structures;
+use std::ops::Add;
+
 use cairo_plonk_dsl_fiat_shamir::CairoFiatShamirResults;
+use circle_plonk_dsl_primitives::oblivious_map::ObliviousMapVar;
 pub use data_structures::*;
 
 use cairo_plonk_dsl_data_structures::stark_proof::StarkProofVar;
 use circle_plonk_dsl_constraint_system::var::Var;
+use indexmap::IndexMap;
+use stwo::core::poly::circle::CanonicCoset;
+use stwo::prover::backend::simd::m31::LOG_N_LANES;
+use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
 
 pub struct AnswerResults {}
 
 impl AnswerResults {
     pub fn compute(
         fiat_shamir_results: &CairoFiatShamirResults,
-        stark_proof: &StarkProofVar
+        stark_proof: &StarkProofVar,
     ) -> AnswerResults {
         let cs = stark_proof.cs();
 
@@ -33,12 +40,27 @@ impl AnswerResults {
             &fiat_shamir_results.oods_point,
             &preprocessed_trace_sample_result,
         );
-        let _trace_quotient_constants = TraceQuotientConstantsVar::new(
-            &fiat_shamir_results.oods_point,
-            &trace_sample_result,
-        );
+        let _trace_quotient_constants =
+            TraceQuotientConstantsVar::new(&fiat_shamir_results.oods_point, &trace_sample_result);
 
-        let _answer_accumulator = AnswerAccumulator::new(&cs, &fiat_shamir_results.after_sampled_values_random_coeff);
+        let shifted_points = {
+            let mut map = IndexMap::new();
+            let oods_point = &fiat_shamir_results.oods_point;
+            for i in LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE {
+                map.insert(
+                    i,
+                    oods_point.add(&CanonicCoset::new(i).step().mul_signed(-1)),
+                );
+            }
+            ObliviousMapVar::new(map)
+        };
+
+        for (k, v) in shifted_points.0.iter() {
+            println!("k: {}, v: {:?}, {:?}", k, v.x.value(), v.y.value());
+        }
+
+        let _answer_accumulator =
+            AnswerAccumulator::new(&cs, &fiat_shamir_results.after_sampled_values_random_coeff);
 
         Self {}
     }

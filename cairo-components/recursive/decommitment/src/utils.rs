@@ -1,7 +1,7 @@
 use circle_plonk_dsl_constraint_system::var::Var;
 use circle_plonk_dsl_constraint_system::{var::AllocVar, ConstraintSystemRef};
 use circle_plonk_dsl_primitives::option::OptionVar;
-use circle_plonk_dsl_primitives::{BitVar, M31Var, Poseidon2HalfVar, QM31Var};
+use circle_plonk_dsl_primitives::{BitVar, LogSizeVar, M31Var, Poseidon2HalfVar, QM31Var};
 use indexmap::IndexMap;
 use num_traits::Zero;
 use std::ops::Neg;
@@ -526,13 +526,13 @@ impl ColumnsHasherVar {
         }
     }
 
-    pub fn update(&mut self, log_size: &M31Var, data: &[M31Var]) {
+    pub fn update(&mut self, log_size: &LogSizeVar, data: &[M31Var]) {
         let cs = log_size.cs();
         let mut entry = HashAccumulatorCompressedVar::new(&cs);
 
         let mut bits = vec![];
         for (k, _) in self.map.iter() {
-            let bit = log_size.is_eq(&M31Var::new_constant(&cs, &M31::from(*k)));
+            let bit = log_size.bitmap.get(&(*k as u32)).unwrap();
             bits.push(bit);
         }
         for ((_, v), bit) in self.map.iter().zip(bits.iter()) {
@@ -586,13 +586,13 @@ impl ColumnsHasherQM31Var {
         }
     }
 
-    pub fn update(&mut self, log_size: &M31Var, data: &[QM31Var]) {
+    pub fn update(&mut self, log_size: &LogSizeVar, data: &[QM31Var]) {
         let cs = log_size.cs();
         let mut entry = HashAccumulatorQM31CompressedVar::new(&cs);
 
         let mut bits = vec![];
         for (k, _) in self.map.iter() {
-            let bit = log_size.is_eq(&M31Var::new_constant(&cs, &M31::from(*k)));
+            let bit = log_size.bitmap.get(&(*k as u32)).unwrap();
             bits.push(bit);
         }
         for ((_, v), bit) in self.map.iter_mut().zip(bits.iter()) {

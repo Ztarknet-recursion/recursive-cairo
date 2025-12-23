@@ -1,39 +1,53 @@
+mod composition;
 mod interaction;
 mod preprocessed;
 mod trace;
-mod composition;
 
+pub use composition::*;
 pub use interaction::*;
 pub use preprocessed::*;
 pub use trace::*;
-pub use composition::*;
 
-use circle_plonk_dsl_constraint_system::{ConstraintSystemRef, var::AllocVar};
-use circle_plonk_dsl_primitives::{CM31Var, CirclePointQM31Var, M31Var, QM31Var};
+use circle_plonk_dsl_constraint_system::{var::AllocVar, ConstraintSystemRef};
+use circle_plonk_dsl_primitives::{CM31Var, CirclePointQM31Var, LogSizeVar, QM31Var};
 use indexmap::IndexMap;
-use stwo::core::{circle::CirclePoint, fields::{ComplexConjugate, m31::M31, qm31::QM31}};
-use stwo_cairo_common::{preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE, prover_types::simd::LOG_N_LANES};
 use num_traits::Zero;
 use std::ops::Neg;
+use stwo::core::{
+    circle::CirclePoint,
+    fields::{m31::M31, qm31::QM31, ComplexConjugate},
+};
+use stwo_cairo_common::{
+    preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE,
+    prover_types::simd::LOG_N_LANES,
+};
 
 pub struct AnswerAccumulator {
     pub cs: ConstraintSystemRef,
     pub random_coeff: QM31Var,
-    pub map: IndexMap<usize, (QM31Var, QM31Var)>, 
+    pub map: IndexMap<usize, (QM31Var, QM31Var)>,
 }
 
 impl AnswerAccumulator {
     pub fn new(cs: &ConstraintSystemRef, random_coeff: &QM31Var) -> Self {
         let mut map = IndexMap::new();
         for i in (LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE).rev() {
-            map.insert(i as usize, (
-                QM31Var::zero(&cs),
-                QM31Var::new_constant(&cs,
-                    &QM31::from_m31(M31::zero(), M31::zero(), M31::from(2).neg(), M31::zero())
-                )
-            ));
+            map.insert(
+                i as usize,
+                (
+                    QM31Var::zero(&cs),
+                    QM31Var::new_constant(
+                        &cs,
+                        &QM31::from_m31(M31::zero(), M31::zero(), M31::from(2).neg(), M31::zero()),
+                    ),
+                ),
+            );
         }
-        Self { cs: cs.clone(), random_coeff: random_coeff.clone(), map }
+        Self {
+            cs: cs.clone(),
+            random_coeff: random_coeff.clone(),
+            map,
+        }
     }
 
     pub fn update_fix_log_size(&mut self, log_size: usize, column_results: &[QM31Var]) {
@@ -45,12 +59,12 @@ impl AnswerAccumulator {
         }
     }
 
-    pub fn update(&mut self, log_size: &M31Var, column_results: &[QM31Var]) {
+    pub fn update(&mut self, log_size: &LogSizeVar, column_results: &[QM31Var]) {
         let cs = &self.cs;
 
         let mut bits = vec![];
         for (k, _) in self.map.iter() {
-            let bit = log_size.is_eq(&M31Var::new_constant(cs, &M31::from(*k)));
+            let bit = log_size.bitmap.get(&(*k as u32)).unwrap();
             bits.push(bit);
         }
 
@@ -74,7 +88,10 @@ impl AnswerAccumulator {
     }
 
     pub fn finalize(&self) -> IndexMap<usize, QM31Var> {
-        self.map.iter().map(|(k, (answer, _))| (*k, answer.clone())).collect()
+        self.map
+            .iter()
+            .map(|(k, (answer, _))| (*k, answer.clone()))
+            .collect()
     }
 }
 
@@ -101,4 +118,3 @@ pub fn complex_conjugate_line_coeffs_var(
 
     [a, b, c]
 }
-

@@ -1,5 +1,7 @@
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
-use circle_plonk_dsl_primitives::{BitVar, CM31Var, CirclePointQM31Var, QM31Var, option::OptionVar};
+use circle_plonk_dsl_primitives::{
+    option::OptionVar, BitVar, CM31Var, CirclePointQM31Var, QM31Var,
+};
 use itertools::Itertools;
 
 pub struct PreprocessedTraceSampleResultVar {
@@ -283,68 +285,221 @@ pub struct PreprocessedTraceQuotientConstantsVar {
 impl PreprocessedTraceQuotientConstantsVar {
     pub fn new(
         oods_point: &CirclePointQM31Var,
-        sample_result: &PreprocessedTraceSampleResultVar
+        sample_result: &PreprocessedTraceSampleResultVar,
     ) -> Self {
         use super::complex_conjugate_line_coeffs_var;
         Self {
             cs: sample_result.cs.clone(),
-            seq_25: OptionVar::new(sample_result.seq_25.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_25.value)),
-            seq_24: OptionVar::new(sample_result.seq_24.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_24.value)),
-            seq_23: OptionVar::new(sample_result.seq_23.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_23.value)),
-            seq_22: OptionVar::new(sample_result.seq_22.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_22.value)),
-            seq_21: OptionVar::new(sample_result.seq_21.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_21.value)),
+            seq_25: OptionVar::new(
+                sample_result.seq_25.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_25.value),
+            ),
+            seq_24: OptionVar::new(
+                sample_result.seq_24.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_24.value),
+            ),
+            seq_23: OptionVar::new(
+                sample_result.seq_23.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_23.value),
+            ),
+            seq_22: OptionVar::new(
+                sample_result.seq_22.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_22.value),
+            ),
+            seq_21: OptionVar::new(
+                sample_result.seq_21.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_21.value),
+            ),
             seq_20: complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_20),
-            bitwise_xor_10_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_10_0),
-            seq_16: OptionVar::new(sample_result.seq_16.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_16.value)),
-            bitwise_xor_8_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_8_0),
-            bitwise_xor_8_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_8_1),
-            bitwise_xor_8_2: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_8_2),
-            range_check_4_4_4_4_column_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_4_4_column_0),
-            range_check_4_4_4_4_column_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_4_4_column_1),
-            range_check_4_4_4_4_column_2: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_4_4_column_2),
-            range_check_4_4_4_4_column_3: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_4_4_column_3),
-            seq_14: OptionVar::new(sample_result.seq_14.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_14.value)),
-            bitwise_xor_7_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_7_0),
-            bitwise_xor_7_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_7_1),
-            bitwise_xor_7_2: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_7_2),
-            range_check_7_2_5_column_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_7_2_5_column_0),
-            range_check_7_2_5_column_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_7_2_5_column_1),
-            range_check_7_2_5_column_2: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_7_2_5_column_2),
-            seq_13: OptionVar::new(sample_result.seq_13.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_13.value)),
+            bitwise_xor_10_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_10_0,
+            ),
+            seq_16: OptionVar::new(
+                sample_result.seq_16.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_16.value),
+            ),
+            bitwise_xor_8_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_8_0,
+            ),
+            bitwise_xor_8_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_8_1,
+            ),
+            bitwise_xor_8_2: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_8_2,
+            ),
+            range_check_4_4_4_4_column_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_4_4_4_column_0,
+            ),
+            range_check_4_4_4_4_column_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_4_4_4_column_1,
+            ),
+            range_check_4_4_4_4_column_2: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_4_4_4_column_2,
+            ),
+            range_check_4_4_4_4_column_3: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_4_4_4_column_3,
+            ),
+            seq_14: OptionVar::new(
+                sample_result.seq_14.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_14.value),
+            ),
+            bitwise_xor_7_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_7_0,
+            ),
+            bitwise_xor_7_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_7_1,
+            ),
+            bitwise_xor_7_2: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_7_2,
+            ),
+            range_check_7_2_5_column_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_7_2_5_column_0,
+            ),
+            range_check_7_2_5_column_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_7_2_5_column_1,
+            ),
+            range_check_7_2_5_column_2: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_7_2_5_column_2,
+            ),
+            seq_13: OptionVar::new(
+                sample_result.seq_13.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_13.value),
+            ),
             seq_12: complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_12),
             seq_11: complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_11),
-            seq_10: OptionVar::new(sample_result.seq_10.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_10.value)),
-            seq_9: OptionVar::new(sample_result.seq_9.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_9.value)),
-            range_check_5_4_column_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_5_4_column_0),
-            range_check_5_4_column_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_5_4_column_1),
+            seq_10: OptionVar::new(
+                sample_result.seq_10.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_10.value),
+            ),
+            seq_9: OptionVar::new(
+                sample_result.seq_9.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_9.value),
+            ),
+            range_check_5_4_column_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_5_4_column_0,
+            ),
+            range_check_5_4_column_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_5_4_column_1,
+            ),
             seq_8: complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_8),
-            bitwise_xor_4_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_4_0),
-            bitwise_xor_4_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_4_1),
-            bitwise_xor_4_2: complex_conjugate_line_coeffs_var(oods_point, &sample_result.bitwise_xor_4_2),
-            range_check_4_4_column_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_column_0),
-            range_check_4_4_column_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_column_1),
-            seq_7: OptionVar::new(sample_result.seq_7.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_7.value)),
-            range_check_4_3_column_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_3_column_0),
-            range_check_4_3_column_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_3_column_1),
+            bitwise_xor_4_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_4_0,
+            ),
+            bitwise_xor_4_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_4_1,
+            ),
+            bitwise_xor_4_2: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.bitwise_xor_4_2,
+            ),
+            range_check_4_4_column_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_4_column_0,
+            ),
+            range_check_4_4_column_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_4_column_1,
+            ),
+            seq_7: OptionVar::new(
+                sample_result.seq_7.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_7.value),
+            ),
+            range_check_4_3_column_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_3_column_0,
+            ),
+            range_check_4_3_column_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.range_check_4_3_column_1,
+            ),
             seq_6: complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_6),
-            seq_5: OptionVar::new(sample_result.seq_5.is_some.clone(), complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_5.value)),
+            seq_5: OptionVar::new(
+                sample_result.seq_5.is_some.clone(),
+                complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_5.value),
+            ),
             seq_4: complex_conjugate_line_coeffs_var(oods_point, &sample_result.seq_4),
-            blake_sigma_0: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_0),
-            blake_sigma_1: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_1),
-            blake_sigma_2: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_2),
-            blake_sigma_3: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_3),
-            blake_sigma_4: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_4),
-            blake_sigma_5: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_5),
-            blake_sigma_6: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_6),
-            blake_sigma_7: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_7),
-            blake_sigma_8: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_8),
-            blake_sigma_9: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_9),
-            blake_sigma_10: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_10),
-            blake_sigma_11: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_11),
-            blake_sigma_12: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_12),
-            blake_sigma_13: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_13),
-            blake_sigma_14: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_14),
-            blake_sigma_15: complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake_sigma_15),
+            blake_sigma_0: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_0,
+            ),
+            blake_sigma_1: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_1,
+            ),
+            blake_sigma_2: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_2,
+            ),
+            blake_sigma_3: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_3,
+            ),
+            blake_sigma_4: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_4,
+            ),
+            blake_sigma_5: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_5,
+            ),
+            blake_sigma_6: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_6,
+            ),
+            blake_sigma_7: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_7,
+            ),
+            blake_sigma_8: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_8,
+            ),
+            blake_sigma_9: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_9,
+            ),
+            blake_sigma_10: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_10,
+            ),
+            blake_sigma_11: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_11,
+            ),
+            blake_sigma_12: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_12,
+            ),
+            blake_sigma_13: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_13,
+            ),
+            blake_sigma_14: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_14,
+            ),
+            blake_sigma_15: complex_conjugate_line_coeffs_var(
+                oods_point,
+                &sample_result.blake_sigma_15,
+            ),
         }
     }
 }

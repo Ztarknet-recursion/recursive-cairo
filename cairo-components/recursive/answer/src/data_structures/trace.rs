@@ -352,10 +352,7 @@ pub struct TraceQuotientConstantsVar {
 }
 
 impl TraceQuotientConstantsVar {
-    pub fn new(
-        oods_point: &CirclePointQM31Var,
-        sample_result: &TraceSampleResultVar,
-    ) -> Self {
+    pub fn new(oods_point: &CirclePointQM31Var, sample_result: &TraceSampleResultVar) -> Self {
         use super::complex_conjugate_line_coeffs_var;
         Self {
             cs: sample_result.cs.clone(),
@@ -365,19 +362,37 @@ impl TraceQuotientConstantsVar {
             }),
             blake: BlakeTraceQuotientConstantsVar::new(oods_point, &sample_result.blake),
             range_check_128_builtin: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_128_builtin[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.range_check_128_builtin[i],
+                )
             }),
             memory_address_to_id: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.memory_address_to_id[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.memory_address_to_id[i],
+                )
             }),
             memory_id_to_big_big: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.memory_id_to_big_big[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.memory_id_to_big_big[i],
+                )
             }),
             memory_id_to_big_small: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.memory_id_to_big_small[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.memory_id_to_big_small[i],
+                )
             }),
-            range_checks: RangeChecksTraceQuotientConstantsVar::new(oods_point, &sample_result.range_checks),
-            verify_bitwise: VerifyBitwiseTraceQuotientConstantsVar::new(oods_point, &sample_result.verify_bitwise),
+            range_checks: RangeChecksTraceQuotientConstantsVar::new(
+                oods_point,
+                &sample_result.range_checks,
+            ),
+            verify_bitwise: VerifyBitwiseTraceQuotientConstantsVar::new(
+                oods_point,
+                &sample_result.verify_bitwise,
+            ),
         }
     }
 }
@@ -428,7 +443,10 @@ impl OpcodesTraceQuotientConstantsVar {
                 complex_conjugate_line_coeffs_var(oods_point, &sample_result.assert_eq_imm[i])
             }),
             assert_eq_double_deref: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.assert_eq_double_deref[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.assert_eq_double_deref[i],
+                )
             }),
             blake: std::array::from_fn(|i| {
                 complex_conjugate_line_coeffs_var(oods_point, &sample_result.blake[i])
@@ -477,10 +495,7 @@ pub struct BlakeTraceQuotientConstantsVar {
 }
 
 impl BlakeTraceQuotientConstantsVar {
-    pub fn new(
-        oods_point: &CirclePointQM31Var,
-        sample_result: &BlakeTraceSampleResultVar,
-    ) -> Self {
+    pub fn new(oods_point: &CirclePointQM31Var, sample_result: &BlakeTraceSampleResultVar) -> Self {
         use super::complex_conjugate_line_coeffs_var;
         Self {
             cs: sample_result.cs.clone(),
@@ -497,7 +512,10 @@ impl BlakeTraceQuotientConstantsVar {
                 complex_conjugate_line_coeffs_var(oods_point, &sample_result.triple_xor_32[i])
             }),
             verify_bitwise_xor_12: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.verify_bitwise_xor_12[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.verify_bitwise_xor_12[i],
+                )
             }),
         }
     }
@@ -629,7 +647,10 @@ impl RangeChecksTraceQuotientConstantsVar {
                 complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_4_4_4_4[i])
             }),
             range_check_3_3_3_3_3: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.range_check_3_3_3_3_3[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.range_check_3_3_3_3_3[i],
+                )
             }),
         }
     }
@@ -653,21 +674,35 @@ impl VerifyBitwiseTraceQuotientConstantsVar {
         Self {
             cs: sample_result.cs.clone(),
             verify_bitwise_xor_4: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.verify_bitwise_xor_4[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.verify_bitwise_xor_4[i],
+                )
             }),
             verify_bitwise_xor_7: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.verify_bitwise_xor_7[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.verify_bitwise_xor_7[i],
+                )
             }),
             verify_bitwise_xor_8: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.verify_bitwise_xor_8[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.verify_bitwise_xor_8[i],
+                )
             }),
             verify_bitwise_xor_8_b: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.verify_bitwise_xor_8_b[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.verify_bitwise_xor_8_b[i],
+                )
             }),
             verify_bitwise_xor_9: std::array::from_fn(|i| {
-                complex_conjugate_line_coeffs_var(oods_point, &sample_result.verify_bitwise_xor_9[i])
+                complex_conjugate_line_coeffs_var(
+                    oods_point,
+                    &sample_result.verify_bitwise_xor_9[i],
+                )
             }),
         }
     }
 }
-

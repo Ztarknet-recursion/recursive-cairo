@@ -189,7 +189,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_fri_answers() {
+    fn test_answers_hints() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let data_path = PathBuf::from(manifest_dir)
             .parent()

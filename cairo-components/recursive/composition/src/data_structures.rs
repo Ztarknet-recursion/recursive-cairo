@@ -121,11 +121,11 @@ impl EvalAtRow for PointEvaluatorVar<'_> {
                 let seq_preprocessed_trace_map =
                     SEQ_PREPROCESSED_TRACE_MAP.get_or_init(initialize_seq_preprocessed_trace_map);
 
-                let log_size = &self.logup.log_size.m31;
+                let log_size = &self.logup.log_size;
                 let mut session = QM31Var::select_start(&self.cs());
                 for i in LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE {
                     let loc = seq_preprocessed_trace_map.get(&Seq::new(i).id()).unwrap();
-                    let bit = log_size.is_eq(&M31Var::new_constant(&self.cs(), &M31::from(i)));
+                    let bit = log_size.bitmap.get(&(i as u32)).unwrap();
 
                     // if bit is true, we require that its preprocessed trace is present
                     // => bit * is_preprocessed_trace_present + !bit = one

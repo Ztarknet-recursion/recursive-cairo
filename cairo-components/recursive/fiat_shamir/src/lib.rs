@@ -3,14 +3,14 @@ use std::ops::Neg;
 
 use cairo_air::verifier::INTERACTION_POW_BITS;
 use cairo_plonk_dsl_data_structures::{
-    interaction_claim::CairoInteractionClaimVar, lookup::CairoInteractionElementsVar, BitIntVar,
+    interaction_claim::CairoInteractionClaimVar, lookup::CairoInteractionElementsVar,
     CairoClaimVar, CairoProofVar,
 };
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_primitives::{
-    channel::ConditionalChannelMixer, BitVar, BitsVar, ChannelVar, CirclePointQM31Var, M31Var,
-    Poseidon2HalfVar, QM31Var,
+    channel::ConditionalChannelMixer, BitIntVar, BitVar, BitsVar, ChannelVar, CirclePointQM31Var,
+    M31Var, Poseidon2HalfVar, QM31Var,
 };
 use stwo::core::{fields::m31::M31, vcs::poseidon31_hash::Poseidon31Hash};
 use stwo_cairo_common::{

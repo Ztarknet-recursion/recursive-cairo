@@ -69,20 +69,20 @@ impl InteractionQueryResultVar {
         let mut columns_hasher = ColumnsHasherQM31Var::new(&self.cs);
         self.opcodes
             .update_hashes(&mut columns_hasher, &claim.opcode_claim);
-        columns_hasher.update(&claim.verify_instruction.m31, &self.verify_instruction);
+        columns_hasher.update(&claim.verify_instruction, &self.verify_instruction);
         self.blake
             .update_hashes(&mut columns_hasher, &claim.blake_context);
         columns_hasher.update(
-            &claim.builtins.range_check_128_builtin_log_size.m31,
+            &claim.builtins.range_check_128_builtin_log_size,
             &self.range_check_128_builtin,
         );
-        columns_hasher.update(&claim.memory_address_to_id.m31, &self.memory_address_to_id);
+        columns_hasher.update(&claim.memory_address_to_id, &self.memory_address_to_id);
         columns_hasher.update(
-            &claim.memory_id_to_value.big_log_size.m31,
+            &claim.memory_id_to_value.big_log_size,
             &self.memory_id_to_big_big,
         );
         columns_hasher.update(
-            &claim.memory_id_to_value.small_log_size.m31,
+            &claim.memory_id_to_value.small_log_size,
             &self.memory_id_to_big_small,
         );
         self.range_checks.update_hashes(&mut columns_hasher);
@@ -163,26 +163,23 @@ impl AllocVar for OpcodesInteractionQueryResultVar {
 
 impl OpcodesInteractionQueryResultVar {
     pub fn update_hashes(&self, columns_hasher: &mut ColumnsHasherQM31Var, claim: &OpcodeClaimVar) {
-        columns_hasher.update(&claim.add.m31, &self.add);
-        columns_hasher.update(&claim.add_small.m31, &self.add_small);
-        columns_hasher.update(&claim.add_ap.m31, &self.add_ap);
-        columns_hasher.update(&claim.assert_eq.m31, &self.assert_eq);
-        columns_hasher.update(&claim.assert_eq_imm.m31, &self.assert_eq_imm);
-        columns_hasher.update(
-            &claim.assert_eq_double_deref.m31,
-            &self.assert_eq_double_deref,
-        );
-        columns_hasher.update(&claim.blake.m31, &self.blake);
-        columns_hasher.update(&claim.call.m31, &self.call);
-        columns_hasher.update(&claim.call_rel_imm.m31, &self.call_rel_imm);
-        columns_hasher.update(&claim.jnz.m31, &self.jnz);
-        columns_hasher.update(&claim.jnz_taken.m31, &self.jnz_taken);
-        columns_hasher.update(&claim.jump_rel.m31, &self.jump_rel);
-        columns_hasher.update(&claim.jump_rel_imm.m31, &self.jump_rel_imm);
-        columns_hasher.update(&claim.mul.m31, &self.mul);
-        columns_hasher.update(&claim.mul_small.m31, &self.mul_small);
-        columns_hasher.update(&claim.qm31.m31, &self.qm31);
-        columns_hasher.update(&claim.ret.m31, &self.ret);
+        columns_hasher.update(&claim.add, &self.add);
+        columns_hasher.update(&claim.add_small, &self.add_small);
+        columns_hasher.update(&claim.add_ap, &self.add_ap);
+        columns_hasher.update(&claim.assert_eq, &self.assert_eq);
+        columns_hasher.update(&claim.assert_eq_imm, &self.assert_eq_imm);
+        columns_hasher.update(&claim.assert_eq_double_deref, &self.assert_eq_double_deref);
+        columns_hasher.update(&claim.blake, &self.blake);
+        columns_hasher.update(&claim.call, &self.call);
+        columns_hasher.update(&claim.call_rel_imm, &self.call_rel_imm);
+        columns_hasher.update(&claim.jnz, &self.jnz);
+        columns_hasher.update(&claim.jnz_taken, &self.jnz_taken);
+        columns_hasher.update(&claim.jump_rel, &self.jump_rel);
+        columns_hasher.update(&claim.jump_rel_imm, &self.jump_rel_imm);
+        columns_hasher.update(&claim.mul, &self.mul);
+        columns_hasher.update(&claim.mul_small, &self.mul_small);
+        columns_hasher.update(&claim.qm31, &self.qm31);
+        columns_hasher.update(&claim.ret, &self.ret);
     }
 }
 
@@ -226,13 +223,13 @@ impl BlakeInteractionQueryResultVar {
         columns_hasher: &mut ColumnsHasherQM31Var,
         claim: &BlakeContextClaimVar,
     ) {
-        columns_hasher.update(&claim.blake_round.m31, &self.round);
-        columns_hasher.update(&claim.blake_g.m31, &self.g);
+        columns_hasher.update(&claim.blake_round, &self.round);
+        columns_hasher.update(&claim.blake_g, &self.g);
         columns_hasher.update_fixed_log_size(
             cairo_air::components::blake_round_sigma::LOG_SIZE,
             &self.sigma,
         );
-        columns_hasher.update(&claim.triple_xor_32.m31, &self.triple_xor_32);
+        columns_hasher.update(&claim.triple_xor_32, &self.triple_xor_32);
         columns_hasher.update_fixed_log_size(
             cairo_air::components::verify_bitwise_xor_12::LOG_SIZE,
             &self.verify_bitwise_xor_12,

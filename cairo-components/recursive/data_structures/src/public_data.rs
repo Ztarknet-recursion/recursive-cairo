@@ -5,14 +5,12 @@ use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
-use circle_plonk_dsl_primitives::{ChannelVar, M31Var, QM31Var};
+use circle_plonk_dsl_primitives::{BitIntVar, ChannelVar, M31Var, QM31Var};
 use itertools::Itertools;
 use stwo::core::fields::m31::M31;
 use stwo_cairo_common::prover_types::{cpu::CasmState, felt::split_f252};
 
-use crate::{
-    data_structures::BitIntVar, lookup::CairoInteractionElementsVar, utils::split_f252_memory_var,
-};
+use crate::{lookup::CairoInteractionElementsVar, utils::split_f252_memory_var};
 
 #[derive(Debug, Clone)]
 pub struct PublicSegmentRangesVar {

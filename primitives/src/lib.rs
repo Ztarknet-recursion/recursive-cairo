@@ -24,7 +24,7 @@ pub mod query;
 pub mod poseidon31;
 
 // Re-export commonly used types for convenience
-pub use bits::{BitVar, BitsVar};
+pub use bits::{BitIntVar, BitVar, BitsVar};
 pub use channel::{ChannelVar, HashVar};
 pub use circle::{CirclePointM31Var, CirclePointQM31Var};
 pub use line::LinePolyVar;
@@ -34,3 +34,4 @@ pub use query::{PointCarryingQueryVar, QueryPositionsPerLogSizeVar};
 
 // Oblivious data structures
 pub mod oblivious_map;
+pub use oblivious_map::{LogSizeVar, ObliviousMapVar, SelectVar};

@@ -8,11 +8,10 @@ use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
-use circle_plonk_dsl_primitives::QM31Var;
-use circle_plonk_dsl_primitives::{ChannelVar, M31Var};
+use circle_plonk_dsl_primitives::{ChannelVar, LogSizeVar, M31Var, QM31Var};
 use stwo::core::fields::m31::M31;
 
-use crate::{data_structures::LogSizeVar, public_data::PublicDataVar, BitIntVar};
+use crate::{public_data::PublicDataVar, BitIntVar};
 
 macro_rules! accumulate_component {
     ($component_name:ident, $expr:expr, $relation_uses:ident) => {{

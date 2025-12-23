@@ -15,6 +15,7 @@ stwo-cairo-common.workspace = true
 bincode.workspace = true
 stwo-constraint-framework.workspace = true
 itertools.workspace = true
+indexmap.workspace = true
 
 [dev-dependencies]
 rand.workspace = true
