@@ -1,7 +1,6 @@
 use cairo_air::air::CairoComponents;
 use cairo_plonk_dsl_data_structures::{
-    data_structures::LogSizeVar, evaluator::PointEvaluationAccumulatorVar,
-    lookup::CairoInteractionElementsVar, CairoProofVar,
+    evaluator::PointEvaluationAccumulatorVar, lookup::CairoInteractionElementsVar, CairoProofVar,
 };
 use cairo_plonk_dsl_fiat_shamir::CairoFiatShamirResults;
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
@@ -9,7 +8,7 @@ use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_primitives::{
     fields::WrappedQM31Var,
     oblivious_map::{ObliviousMapVar, SelectVar},
-    BitVar, CirclePointM31Var, CirclePointQM31Var, M31Var, QM31Var,
+    BitVar, CirclePointM31Var, CirclePointQM31Var, LogSizeVar, M31Var, QM31Var,
 };
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -44,7 +43,7 @@ fn initialize_coset_shift_map() -> ObliviousMapVar<(M31, M31)> {
 pub fn coset_vanishing_var(p: &CirclePointQM31Var, coset_log_size: &LogSizeVar) -> QM31Var {
     let cs = p.cs();
     let coset_shift_map = COSET_SHIFT_MAP.get_or_init(initialize_coset_shift_map);
-    let shift_point_result = coset_shift_map.select(&coset_log_size.m31);
+    let shift_point_result = coset_shift_map.select(&coset_log_size);
 
     let shift_point = CirclePointM31Var {
         x: shift_point_result.0,
@@ -61,7 +60,7 @@ pub fn coset_vanishing_var(p: &CirclePointQM31Var, coset_log_size: &LogSizeVar) 
     }
 
     let omap = ObliviousMapVar::new(map);
-    let result = omap.select(&coset_log_size.m31);
+    let result = omap.select(&coset_log_size);
     result
 }
 

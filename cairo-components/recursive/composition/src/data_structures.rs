@@ -4,15 +4,13 @@ use std::ops::Neg;
 use std::sync::OnceLock;
 
 use cairo_air::PreProcessedTraceVariant;
-use cairo_plonk_dsl_data_structures::data_structures::LogSizeVar;
 use cairo_plonk_dsl_data_structures::evaluator::PointEvaluationAccumulatorVar;
-use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
+use circle_plonk_dsl_constraint_system::var::Var;
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
 use circle_plonk_dsl_primitives::fields::WrappedQM31Var;
 use circle_plonk_dsl_primitives::oblivious_map::SelectVar;
-use circle_plonk_dsl_primitives::{BitVar, M31Var, QM31Var};
+use circle_plonk_dsl_primitives::{BitVar, LogSizeVar, QM31Var};
 use num_traits::Zero;
-use stwo::core::fields::m31::M31;
 use stwo::core::fields::qm31::{QM31, SECURE_EXTENSION_DEGREE};
 use stwo::core::pcs::TreeVec;
 use stwo::core::{ColumnVec, Fraction};
@@ -130,7 +128,7 @@ impl EvalAtRow for PointEvaluatorVar<'_> {
                     // if bit is true, we require that its preprocessed trace is present
                     // => bit * is_preprocessed_trace_present + !bit = one
                     let is_preprocessed_trace_present = &self.is_preprocessed_trace_present[*loc];
-                    let constraint = &(&bit & is_preprocessed_trace_present) | &bit.neg();
+                    let constraint = &(bit & is_preprocessed_trace_present) | &bit.neg();
                     constraint.equalverify(&BitVar::new_true(&self.cs()));
 
                     QM31Var::select_add(
