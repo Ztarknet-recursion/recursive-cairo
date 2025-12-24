@@ -26,6 +26,7 @@ pub struct CairoFiatShamirResults {
     pub max_log_size: M31Var,
     pub queries: Vec<BitsVar>,
     pub query_log_size: M31Var,
+    pub composition_log_size: M31Var,
 }
 
 impl CairoFiatShamirResults {
@@ -189,6 +190,7 @@ impl CairoFiatShamirResults {
             max_log_size: max_trace_and_interaction_log_size,
             queries,
             query_log_size,
+            composition_log_size,
         }
     }
 

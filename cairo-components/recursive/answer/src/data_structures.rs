@@ -160,7 +160,7 @@ impl AnswerAccumulator {
 pub fn complex_conjugate_line_coeffs_var(
     point: &CirclePointQM31Var,
     value: &QM31Var,
-) -> [CM31Var; 3] {
+) -> [CM31Var; 2] {
     assert_ne!(
         point.y.value(),
         point.y.value().complex_conjugate(),
@@ -175,10 +175,9 @@ pub fn complex_conjugate_line_coeffs_var(
     let [y0, y1] = point.y.decompose_cm31();
 
     let a = value1.clone();
-    let c = y1.clone();
     let b = &(&value0 * &y1) - &(&value1 * &y0);
 
-    [a, b, c]
+    [a, b]
 }
 
 pub struct CairoQueryPositionsPerLogSizeVar {

@@ -1,6 +1,18 @@
 use cairo_air::components;
-use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
-use circle_plonk_dsl_primitives::{CM31Var, CirclePointQM31Var, QM31Var};
+use cairo_plonk_dsl_data_structures::CairoClaimVar;
+use cairo_plonk_dsl_decommitment::CairoDecommitmentResultsVar;
+use circle_plonk_dsl_constraint_system::{var::Var, ConstraintSystemRef};
+use circle_plonk_dsl_primitives::{
+    CM31Var, CirclePointM31Var, CirclePointQM31Var, LogSizeVar, M31Var, QM31Var,
+};
+use indexmap::IndexMap;
+use itertools::Itertools;
+use stwo_cairo_common::{
+    preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE,
+    prover_types::simd::LOG_N_LANES,
+};
+
+use crate::AnswerAccumulator;
 
 pub struct TraceSampleResultVar {
     pub cs: ConstraintSystemRef,
@@ -335,18 +347,18 @@ pub struct VerifyBitwiseTraceSampleResultVar {
     pub verify_bitwise_xor_9: [QM31Var; components::verify_bitwise_xor_9::N_TRACE_COLUMNS],
 }
 
-// QuotientConstantsVar structs - replacing QM31Var with [CM31Var; 3]
+// QuotientConstantsVar structs - replacing QM31Var with [CM31Var; 2]
 
 pub struct TraceQuotientConstantsVar {
     pub cs: ConstraintSystemRef,
     pub opcodes: OpcodesTraceQuotientConstantsVar,
-    pub verify_instruction: [[CM31Var; 3]; components::verify_instruction::N_TRACE_COLUMNS],
+    pub verify_instruction: [[CM31Var; 2]; components::verify_instruction::N_TRACE_COLUMNS],
     pub blake: BlakeTraceQuotientConstantsVar,
     pub range_check_128_builtin:
-        [[CM31Var; 3]; components::range_check_builtin_bits_128::N_TRACE_COLUMNS],
-    pub memory_address_to_id: [[CM31Var; 3]; components::memory_address_to_id::N_TRACE_COLUMNS],
-    pub memory_id_to_big_big: [[CM31Var; 3]; components::memory_id_to_big::BIG_N_COLUMNS],
-    pub memory_id_to_big_small: [[CM31Var; 3]; components::memory_id_to_big::SMALL_N_COLUMNS],
+        [[CM31Var; 2]; components::range_check_builtin_bits_128::N_TRACE_COLUMNS],
+    pub memory_address_to_id: [[CM31Var; 2]; components::memory_address_to_id::N_TRACE_COLUMNS],
+    pub memory_id_to_big_big: [[CM31Var; 2]; components::memory_id_to_big::BIG_N_COLUMNS],
+    pub memory_id_to_big_small: [[CM31Var; 2]; components::memory_id_to_big::SMALL_N_COLUMNS],
     pub range_checks: RangeChecksTraceQuotientConstantsVar,
     pub verify_bitwise: VerifyBitwiseTraceQuotientConstantsVar,
 }
@@ -399,24 +411,24 @@ impl TraceQuotientConstantsVar {
 
 pub struct OpcodesTraceQuotientConstantsVar {
     pub cs: ConstraintSystemRef,
-    pub add: [[CM31Var; 3]; components::add_opcode::N_TRACE_COLUMNS],
-    pub add_small: [[CM31Var; 3]; components::add_opcode_small::N_TRACE_COLUMNS],
-    pub add_ap: [[CM31Var; 3]; components::add_ap_opcode::N_TRACE_COLUMNS],
-    pub assert_eq: [[CM31Var; 3]; components::assert_eq_opcode::N_TRACE_COLUMNS],
-    pub assert_eq_imm: [[CM31Var; 3]; components::assert_eq_opcode_imm::N_TRACE_COLUMNS],
+    pub add: [[CM31Var; 2]; components::add_opcode::N_TRACE_COLUMNS],
+    pub add_small: [[CM31Var; 2]; components::add_opcode_small::N_TRACE_COLUMNS],
+    pub add_ap: [[CM31Var; 2]; components::add_ap_opcode::N_TRACE_COLUMNS],
+    pub assert_eq: [[CM31Var; 2]; components::assert_eq_opcode::N_TRACE_COLUMNS],
+    pub assert_eq_imm: [[CM31Var; 2]; components::assert_eq_opcode_imm::N_TRACE_COLUMNS],
     pub assert_eq_double_deref:
-        [[CM31Var; 3]; components::assert_eq_opcode_double_deref::N_TRACE_COLUMNS],
-    pub blake: [[CM31Var; 3]; components::blake_compress_opcode::N_TRACE_COLUMNS],
-    pub call: [[CM31Var; 3]; components::call_opcode_abs::N_TRACE_COLUMNS],
-    pub call_rel_imm: [[CM31Var; 3]; components::call_opcode_rel_imm::N_TRACE_COLUMNS],
-    pub jnz: [[CM31Var; 3]; components::jnz_opcode_non_taken::N_TRACE_COLUMNS],
-    pub jnz_taken: [[CM31Var; 3]; components::jnz_opcode_taken::N_TRACE_COLUMNS],
-    pub jump_rel: [[CM31Var; 3]; components::jump_opcode_rel::N_TRACE_COLUMNS],
-    pub jump_rel_imm: [[CM31Var; 3]; components::jump_opcode_rel_imm::N_TRACE_COLUMNS],
-    pub mul: [[CM31Var; 3]; components::mul_opcode::N_TRACE_COLUMNS],
-    pub mul_small: [[CM31Var; 3]; components::mul_opcode_small::N_TRACE_COLUMNS],
-    pub qm31: [[CM31Var; 3]; components::qm_31_add_mul_opcode::N_TRACE_COLUMNS],
-    pub ret: [[CM31Var; 3]; components::ret_opcode::N_TRACE_COLUMNS],
+        [[CM31Var; 2]; components::assert_eq_opcode_double_deref::N_TRACE_COLUMNS],
+    pub blake: [[CM31Var; 2]; components::blake_compress_opcode::N_TRACE_COLUMNS],
+    pub call: [[CM31Var; 2]; components::call_opcode_abs::N_TRACE_COLUMNS],
+    pub call_rel_imm: [[CM31Var; 2]; components::call_opcode_rel_imm::N_TRACE_COLUMNS],
+    pub jnz: [[CM31Var; 2]; components::jnz_opcode_non_taken::N_TRACE_COLUMNS],
+    pub jnz_taken: [[CM31Var; 2]; components::jnz_opcode_taken::N_TRACE_COLUMNS],
+    pub jump_rel: [[CM31Var; 2]; components::jump_opcode_rel::N_TRACE_COLUMNS],
+    pub jump_rel_imm: [[CM31Var; 2]; components::jump_opcode_rel_imm::N_TRACE_COLUMNS],
+    pub mul: [[CM31Var; 2]; components::mul_opcode::N_TRACE_COLUMNS],
+    pub mul_small: [[CM31Var; 2]; components::mul_opcode_small::N_TRACE_COLUMNS],
+    pub qm31: [[CM31Var; 2]; components::qm_31_add_mul_opcode::N_TRACE_COLUMNS],
+    pub ret: [[CM31Var; 2]; components::ret_opcode::N_TRACE_COLUMNS],
 }
 
 impl OpcodesTraceQuotientConstantsVar {
@@ -487,11 +499,11 @@ impl OpcodesTraceQuotientConstantsVar {
 
 pub struct BlakeTraceQuotientConstantsVar {
     pub cs: ConstraintSystemRef,
-    pub round: [[CM31Var; 3]; components::blake_round::N_TRACE_COLUMNS],
-    pub g: [[CM31Var; 3]; components::blake_g::N_TRACE_COLUMNS],
-    pub sigma: [[CM31Var; 3]; components::blake_round_sigma::N_TRACE_COLUMNS],
-    pub triple_xor_32: [[CM31Var; 3]; components::triple_xor_32::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_12: [[CM31Var; 3]; components::verify_bitwise_xor_12::N_TRACE_COLUMNS],
+    pub round: [[CM31Var; 2]; components::blake_round::N_TRACE_COLUMNS],
+    pub g: [[CM31Var; 2]; components::blake_g::N_TRACE_COLUMNS],
+    pub sigma: [[CM31Var; 2]; components::blake_round_sigma::N_TRACE_COLUMNS],
+    pub triple_xor_32: [[CM31Var; 2]; components::triple_xor_32::N_TRACE_COLUMNS],
+    pub verify_bitwise_xor_12: [[CM31Var; 2]; components::verify_bitwise_xor_12::N_TRACE_COLUMNS],
 }
 
 impl BlakeTraceQuotientConstantsVar {
@@ -523,35 +535,35 @@ impl BlakeTraceQuotientConstantsVar {
 
 pub struct RangeChecksTraceQuotientConstantsVar {
     pub cs: ConstraintSystemRef,
-    pub range_check_6: [[CM31Var; 3]; components::range_check_6::N_TRACE_COLUMNS],
-    pub range_check_8: [[CM31Var; 3]; components::range_check_8::N_TRACE_COLUMNS],
-    pub range_check_11: [[CM31Var; 3]; components::range_check_11::N_TRACE_COLUMNS],
-    pub range_check_12: [[CM31Var; 3]; components::range_check_12::N_TRACE_COLUMNS],
-    pub range_check_18: [[CM31Var; 3]; components::range_check_18::N_TRACE_COLUMNS],
-    pub range_check_18_b: [[CM31Var; 3]; components::range_check_18_b::N_TRACE_COLUMNS],
-    pub range_check_20: [[CM31Var; 3]; components::range_check_20::N_TRACE_COLUMNS],
-    pub range_check_20_b: [[CM31Var; 3]; components::range_check_20_b::N_TRACE_COLUMNS],
-    pub range_check_20_c: [[CM31Var; 3]; components::range_check_20_c::N_TRACE_COLUMNS],
-    pub range_check_20_d: [[CM31Var; 3]; components::range_check_20_d::N_TRACE_COLUMNS],
-    pub range_check_20_e: [[CM31Var; 3]; components::range_check_20_e::N_TRACE_COLUMNS],
-    pub range_check_20_f: [[CM31Var; 3]; components::range_check_20_f::N_TRACE_COLUMNS],
-    pub range_check_20_g: [[CM31Var; 3]; components::range_check_20_g::N_TRACE_COLUMNS],
-    pub range_check_20_h: [[CM31Var; 3]; components::range_check_20_h::N_TRACE_COLUMNS],
-    pub range_check_4_3: [[CM31Var; 3]; components::range_check_4_3::N_TRACE_COLUMNS],
-    pub range_check_4_4: [[CM31Var; 3]; components::range_check_4_4::N_TRACE_COLUMNS],
-    pub range_check_5_4: [[CM31Var; 3]; components::range_check_5_4::N_TRACE_COLUMNS],
-    pub range_check_9_9: [[CM31Var; 3]; components::range_check_9_9::N_TRACE_COLUMNS],
-    pub range_check_9_9_b: [[CM31Var; 3]; components::range_check_9_9_b::N_TRACE_COLUMNS],
-    pub range_check_9_9_c: [[CM31Var; 3]; components::range_check_9_9_c::N_TRACE_COLUMNS],
-    pub range_check_9_9_d: [[CM31Var; 3]; components::range_check_9_9_d::N_TRACE_COLUMNS],
-    pub range_check_9_9_e: [[CM31Var; 3]; components::range_check_9_9_e::N_TRACE_COLUMNS],
-    pub range_check_9_9_f: [[CM31Var; 3]; components::range_check_9_9_f::N_TRACE_COLUMNS],
-    pub range_check_9_9_g: [[CM31Var; 3]; components::range_check_9_9_g::N_TRACE_COLUMNS],
-    pub range_check_9_9_h: [[CM31Var; 3]; components::range_check_9_9_h::N_TRACE_COLUMNS],
-    pub range_check_7_2_5: [[CM31Var; 3]; components::range_check_7_2_5::N_TRACE_COLUMNS],
-    pub range_check_3_6_6_3: [[CM31Var; 3]; components::range_check_3_6_6_3::N_TRACE_COLUMNS],
-    pub range_check_4_4_4_4: [[CM31Var; 3]; components::range_check_4_4_4_4::N_TRACE_COLUMNS],
-    pub range_check_3_3_3_3_3: [[CM31Var; 3]; components::range_check_3_3_3_3_3::N_TRACE_COLUMNS],
+    pub range_check_6: [[CM31Var; 2]; components::range_check_6::N_TRACE_COLUMNS],
+    pub range_check_8: [[CM31Var; 2]; components::range_check_8::N_TRACE_COLUMNS],
+    pub range_check_11: [[CM31Var; 2]; components::range_check_11::N_TRACE_COLUMNS],
+    pub range_check_12: [[CM31Var; 2]; components::range_check_12::N_TRACE_COLUMNS],
+    pub range_check_18: [[CM31Var; 2]; components::range_check_18::N_TRACE_COLUMNS],
+    pub range_check_18_b: [[CM31Var; 2]; components::range_check_18_b::N_TRACE_COLUMNS],
+    pub range_check_20: [[CM31Var; 2]; components::range_check_20::N_TRACE_COLUMNS],
+    pub range_check_20_b: [[CM31Var; 2]; components::range_check_20_b::N_TRACE_COLUMNS],
+    pub range_check_20_c: [[CM31Var; 2]; components::range_check_20_c::N_TRACE_COLUMNS],
+    pub range_check_20_d: [[CM31Var; 2]; components::range_check_20_d::N_TRACE_COLUMNS],
+    pub range_check_20_e: [[CM31Var; 2]; components::range_check_20_e::N_TRACE_COLUMNS],
+    pub range_check_20_f: [[CM31Var; 2]; components::range_check_20_f::N_TRACE_COLUMNS],
+    pub range_check_20_g: [[CM31Var; 2]; components::range_check_20_g::N_TRACE_COLUMNS],
+    pub range_check_20_h: [[CM31Var; 2]; components::range_check_20_h::N_TRACE_COLUMNS],
+    pub range_check_4_3: [[CM31Var; 2]; components::range_check_4_3::N_TRACE_COLUMNS],
+    pub range_check_4_4: [[CM31Var; 2]; components::range_check_4_4::N_TRACE_COLUMNS],
+    pub range_check_5_4: [[CM31Var; 2]; components::range_check_5_4::N_TRACE_COLUMNS],
+    pub range_check_9_9: [[CM31Var; 2]; components::range_check_9_9::N_TRACE_COLUMNS],
+    pub range_check_9_9_b: [[CM31Var; 2]; components::range_check_9_9_b::N_TRACE_COLUMNS],
+    pub range_check_9_9_c: [[CM31Var; 2]; components::range_check_9_9_c::N_TRACE_COLUMNS],
+    pub range_check_9_9_d: [[CM31Var; 2]; components::range_check_9_9_d::N_TRACE_COLUMNS],
+    pub range_check_9_9_e: [[CM31Var; 2]; components::range_check_9_9_e::N_TRACE_COLUMNS],
+    pub range_check_9_9_f: [[CM31Var; 2]; components::range_check_9_9_f::N_TRACE_COLUMNS],
+    pub range_check_9_9_g: [[CM31Var; 2]; components::range_check_9_9_g::N_TRACE_COLUMNS],
+    pub range_check_9_9_h: [[CM31Var; 2]; components::range_check_9_9_h::N_TRACE_COLUMNS],
+    pub range_check_7_2_5: [[CM31Var; 2]; components::range_check_7_2_5::N_TRACE_COLUMNS],
+    pub range_check_3_6_6_3: [[CM31Var; 2]; components::range_check_3_6_6_3::N_TRACE_COLUMNS],
+    pub range_check_4_4_4_4: [[CM31Var; 2]; components::range_check_4_4_4_4::N_TRACE_COLUMNS],
+    pub range_check_3_3_3_3_3: [[CM31Var; 2]; components::range_check_3_3_3_3_3::N_TRACE_COLUMNS],
 }
 
 impl RangeChecksTraceQuotientConstantsVar {
@@ -658,11 +670,11 @@ impl RangeChecksTraceQuotientConstantsVar {
 
 pub struct VerifyBitwiseTraceQuotientConstantsVar {
     pub cs: ConstraintSystemRef,
-    pub verify_bitwise_xor_4: [[CM31Var; 3]; components::verify_bitwise_xor_4::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_7: [[CM31Var; 3]; components::verify_bitwise_xor_7::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_8: [[CM31Var; 3]; components::verify_bitwise_xor_8::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_8_b: [[CM31Var; 3]; components::verify_bitwise_xor_8_b::N_TRACE_COLUMNS],
-    pub verify_bitwise_xor_9: [[CM31Var; 3]; components::verify_bitwise_xor_9::N_TRACE_COLUMNS],
+    pub verify_bitwise_xor_4: [[CM31Var; 2]; components::verify_bitwise_xor_4::N_TRACE_COLUMNS],
+    pub verify_bitwise_xor_7: [[CM31Var; 2]; components::verify_bitwise_xor_7::N_TRACE_COLUMNS],
+    pub verify_bitwise_xor_8: [[CM31Var; 2]; components::verify_bitwise_xor_8::N_TRACE_COLUMNS],
+    pub verify_bitwise_xor_8_b: [[CM31Var; 2]; components::verify_bitwise_xor_8_b::N_TRACE_COLUMNS],
+    pub verify_bitwise_xor_9: [[CM31Var; 2]; components::verify_bitwise_xor_9::N_TRACE_COLUMNS],
 }
 
 impl VerifyBitwiseTraceQuotientConstantsVar {
@@ -704,5 +716,517 @@ impl VerifyBitwiseTraceQuotientConstantsVar {
                 )
             }),
         }
+    }
+}
+
+pub fn compute_trace_answers(
+    num_queries: usize,
+    answer_accumulator: &mut Vec<AnswerAccumulator>,
+    oods_point_y: &CM31Var,
+    domain_points: &IndexMap<u32, Vec<CirclePointM31Var>>,
+    denominator_inverses_with_oods_point: &IndexMap<u32, Vec<CM31Var>>,
+    query_result: &CairoDecommitmentResultsVar,
+    quotient_constants: &TraceQuotientConstantsVar,
+    claim: &CairoClaimVar,
+) {
+    let update = |answer_accumulator: &mut AnswerAccumulator,
+                  log_size: &LogSizeVar,
+                  query: &[M31Var],
+                  quotient_constants: &[[CM31Var; 2]],
+                  idx: usize| {
+        let cs = oods_point_y.cs();
+        let mut x = M31Var::zero(&cs);
+        let mut y = M31Var::zero(&cs);
+        let mut denominator_inverse = CM31Var::zero(&cs);
+
+        for i in (LOG_N_LANES + 1)..=(MAX_SEQUENCE_LOG_SIZE + 1) {
+            let bit = log_size.bitmap.get(&(i - 1)).unwrap();
+            x = &x + &(&bit.0 * &domain_points.get(&i).unwrap()[idx].x);
+            y = &y + &(&bit.0 * &domain_points.get(&i).unwrap()[idx].y);
+            denominator_inverse = &denominator_inverse
+                + &(&denominator_inverses_with_oods_point.get(&i).unwrap()[idx] * &bit.0);
+        }
+
+        let update = quotient_constants
+            .iter()
+            .zip_eq(query.iter())
+            .map(|(quotient_constants, query)| {
+                &denominator_inverse
+                    * &(&(&(oods_point_y * query) - &(&quotient_constants[0] * &y))
+                        - &quotient_constants[1])
+            })
+            .collect_vec();
+        answer_accumulator.update(log_size, &update);
+    };
+
+    let update_fixed_log_size = |answer_accumulator: &mut AnswerAccumulator,
+                                 log_size: u32,
+                                 query: &[M31Var],
+                                 quotient_constants: &[[CM31Var; 2]],
+                                 idx: usize| {
+        let query_point = &domain_points.get(&(log_size + 1)).unwrap()[idx];
+        let denominator_inverse = &denominator_inverses_with_oods_point
+            .get(&(log_size + 1))
+            .unwrap()[idx];
+        let update = quotient_constants
+            .iter()
+            .zip_eq(query.iter())
+            .map(|(quotient_constants, query)| {
+                denominator_inverse
+                    * &(&(&(oods_point_y * query) - &(&quotient_constants[0] * &query_point.y))
+                        - &quotient_constants[1])
+            })
+            .collect_vec();
+        answer_accumulator.update_fix_log_size(log_size as usize, &update);
+    };
+
+    for idx in 0..num_queries {
+        let answer_accumulator = &mut answer_accumulator[idx];
+        let query_result = &query_result[idx].trace_query_result;
+
+        // opcodes
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.add,
+            &query_result.opcodes.add,
+            &quotient_constants.opcodes.add,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.add_small,
+            &query_result.opcodes.add_small,
+            &quotient_constants.opcodes.add_small,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.add_ap,
+            &query_result.opcodes.add_ap,
+            &quotient_constants.opcodes.add_ap,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.assert_eq,
+            &query_result.opcodes.assert_eq,
+            &quotient_constants.opcodes.assert_eq,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.assert_eq_imm,
+            &query_result.opcodes.assert_eq_imm,
+            &quotient_constants.opcodes.assert_eq_imm,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.assert_eq_double_deref,
+            &query_result.opcodes.assert_eq_double_deref,
+            &quotient_constants.opcodes.assert_eq_double_deref,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.blake,
+            &query_result.opcodes.blake,
+            &quotient_constants.opcodes.blake,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.call,
+            &query_result.opcodes.call,
+            &quotient_constants.opcodes.call,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.call_rel_imm,
+            &query_result.opcodes.call_rel_imm,
+            &quotient_constants.opcodes.call_rel_imm,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.jnz,
+            &query_result.opcodes.jnz,
+            &quotient_constants.opcodes.jnz,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.jnz_taken,
+            &query_result.opcodes.jnz_taken,
+            &quotient_constants.opcodes.jnz_taken,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.jump_rel,
+            &query_result.opcodes.jump_rel,
+            &quotient_constants.opcodes.jump_rel,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.jump_rel_imm,
+            &query_result.opcodes.jump_rel_imm,
+            &quotient_constants.opcodes.jump_rel_imm,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.mul,
+            &query_result.opcodes.mul,
+            &quotient_constants.opcodes.mul,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.mul_small,
+            &query_result.opcodes.mul_small,
+            &quotient_constants.opcodes.mul_small,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.qm31,
+            &query_result.opcodes.qm31,
+            &quotient_constants.opcodes.qm31,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.opcode_claim.ret,
+            &query_result.opcodes.ret,
+            &quotient_constants.opcodes.ret,
+            idx,
+        );
+
+        // verify_instruction
+        update(
+            answer_accumulator,
+            &claim.verify_instruction,
+            &query_result.verify_instruction,
+            &quotient_constants.verify_instruction,
+            idx,
+        );
+
+        // blake
+        update(
+            answer_accumulator,
+            &claim.blake_context.blake_round,
+            &query_result.blake.round,
+            &quotient_constants.blake.round,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.blake_context.blake_g,
+            &query_result.blake.g,
+            &quotient_constants.blake.g,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::blake_round_sigma::LOG_SIZE,
+            &query_result.blake.sigma,
+            &quotient_constants.blake.sigma,
+            idx,
+        );
+        update(
+            answer_accumulator,
+            &claim.blake_context.triple_xor_32,
+            &query_result.blake.triple_xor_32,
+            &quotient_constants.blake.triple_xor_32,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::verify_bitwise_xor_12::LOG_SIZE,
+            &query_result.blake.verify_bitwise_xor_12,
+            &quotient_constants.blake.verify_bitwise_xor_12,
+            idx,
+        );
+
+        // range_check_128_builtin
+        update(
+            answer_accumulator,
+            &claim.builtins.range_check_128_builtin_log_size,
+            &query_result.range_check_128_builtin,
+            &quotient_constants.range_check_128_builtin,
+            idx,
+        );
+
+        // memory_address_to_id
+        update(
+            answer_accumulator,
+            &claim.memory_address_to_id,
+            &query_result.memory_address_to_id,
+            &quotient_constants.memory_address_to_id,
+            idx,
+        );
+
+        // memory_id_to_big_big
+        update(
+            answer_accumulator,
+            &claim.memory_id_to_value.big_log_size,
+            &query_result.memory_id_to_big_big,
+            &quotient_constants.memory_id_to_big_big,
+            idx,
+        );
+
+        // memory_id_to_big_small
+        update(
+            answer_accumulator,
+            &claim.memory_id_to_value.small_log_size,
+            &query_result.memory_id_to_big_small,
+            &quotient_constants.memory_id_to_big_small,
+            idx,
+        );
+
+        // range_checks
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_6::LOG_SIZE,
+            &query_result.range_checks.range_check_6,
+            &quotient_constants.range_checks.range_check_6,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_8::LOG_SIZE,
+            &query_result.range_checks.range_check_8,
+            &quotient_constants.range_checks.range_check_8,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_11::LOG_SIZE,
+            &query_result.range_checks.range_check_11,
+            &quotient_constants.range_checks.range_check_11,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_12::LOG_SIZE,
+            &query_result.range_checks.range_check_12,
+            &quotient_constants.range_checks.range_check_12,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_18::LOG_SIZE,
+            &query_result.range_checks.range_check_18,
+            &quotient_constants.range_checks.range_check_18,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_18_b::LOG_SIZE,
+            &query_result.range_checks.range_check_18_b,
+            &quotient_constants.range_checks.range_check_18_b,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20::LOG_SIZE,
+            &query_result.range_checks.range_check_20,
+            &quotient_constants.range_checks.range_check_20,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_b::LOG_SIZE,
+            &query_result.range_checks.range_check_20_b,
+            &quotient_constants.range_checks.range_check_20_b,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_c::LOG_SIZE,
+            &query_result.range_checks.range_check_20_c,
+            &quotient_constants.range_checks.range_check_20_c,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_d::LOG_SIZE,
+            &query_result.range_checks.range_check_20_d,
+            &quotient_constants.range_checks.range_check_20_d,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_e::LOG_SIZE,
+            &query_result.range_checks.range_check_20_e,
+            &quotient_constants.range_checks.range_check_20_e,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_f::LOG_SIZE,
+            &query_result.range_checks.range_check_20_f,
+            &quotient_constants.range_checks.range_check_20_f,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_g::LOG_SIZE,
+            &query_result.range_checks.range_check_20_g,
+            &quotient_constants.range_checks.range_check_20_g,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_20_h::LOG_SIZE,
+            &query_result.range_checks.range_check_20_h,
+            &quotient_constants.range_checks.range_check_20_h,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_4_3::LOG_SIZE,
+            &query_result.range_checks.range_check_4_3,
+            &quotient_constants.range_checks.range_check_4_3,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_4_4::LOG_SIZE,
+            &query_result.range_checks.range_check_4_4,
+            &quotient_constants.range_checks.range_check_4_4,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_5_4::LOG_SIZE,
+            &query_result.range_checks.range_check_5_4,
+            &quotient_constants.range_checks.range_check_5_4,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9,
+            &quotient_constants.range_checks.range_check_9_9,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_b::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_b,
+            &quotient_constants.range_checks.range_check_9_9_b,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_c::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_c,
+            &quotient_constants.range_checks.range_check_9_9_c,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_d::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_d,
+            &quotient_constants.range_checks.range_check_9_9_d,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_e::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_e,
+            &quotient_constants.range_checks.range_check_9_9_e,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_f::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_f,
+            &quotient_constants.range_checks.range_check_9_9_f,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_g::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_g,
+            &quotient_constants.range_checks.range_check_9_9_g,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_9_9_h::LOG_SIZE,
+            &query_result.range_checks.range_check_9_9_h,
+            &quotient_constants.range_checks.range_check_9_9_h,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_7_2_5::LOG_SIZE,
+            &query_result.range_checks.range_check_7_2_5,
+            &quotient_constants.range_checks.range_check_7_2_5,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_3_6_6_3::LOG_SIZE,
+            &query_result.range_checks.range_check_3_6_6_3,
+            &quotient_constants.range_checks.range_check_3_6_6_3,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_4_4_4_4::LOG_SIZE,
+            &query_result.range_checks.range_check_4_4_4_4,
+            &quotient_constants.range_checks.range_check_4_4_4_4,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::range_check_3_3_3_3_3::LOG_SIZE,
+            &query_result.range_checks.range_check_3_3_3_3_3,
+            &quotient_constants.range_checks.range_check_3_3_3_3_3,
+            idx,
+        );
+
+        // verify_bitwise
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::verify_bitwise_xor_4::LOG_SIZE,
+            &query_result.verify_bitwise.verify_bitwise_xor_4,
+            &quotient_constants.verify_bitwise.verify_bitwise_xor_4,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::verify_bitwise_xor_7::LOG_SIZE,
+            &query_result.verify_bitwise.verify_bitwise_xor_7,
+            &quotient_constants.verify_bitwise.verify_bitwise_xor_7,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::verify_bitwise_xor_8::LOG_SIZE,
+            &query_result.verify_bitwise.verify_bitwise_xor_8,
+            &quotient_constants.verify_bitwise.verify_bitwise_xor_8,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::verify_bitwise_xor_8_b::LOG_SIZE,
+            &query_result.verify_bitwise.verify_bitwise_xor_8_b,
+            &quotient_constants.verify_bitwise.verify_bitwise_xor_8_b,
+            idx,
+        );
+        update_fixed_log_size(
+            answer_accumulator,
+            cairo_air::components::verify_bitwise_xor_9::LOG_SIZE,
+            &query_result.verify_bitwise.verify_bitwise_xor_9,
+            &quotient_constants.verify_bitwise.verify_bitwise_xor_9,
+            idx,
+        );
     }
 }

@@ -1,14 +1,14 @@
 pub mod data_structures;
 use std::ops::Add;
 
+use cairo_plonk_dsl_data_structures::CairoProofVar;
 use cairo_plonk_dsl_decommitment::CairoDecommitmentResultsVar;
 use cairo_plonk_dsl_fiat_shamir::CairoFiatShamirResults;
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_primitives::oblivious_map::ObliviousMapVar;
-use circle_plonk_dsl_primitives::CirclePointM31Var;
+use circle_plonk_dsl_primitives::{CM31Var, CirclePointM31Var, QM31Var};
 pub use data_structures::*;
 
-use cairo_plonk_dsl_data_structures::stark_proof::StarkProofVar;
 use circle_plonk_dsl_constraint_system::var::Var;
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -16,32 +16,30 @@ use stwo::core::poly::circle::CanonicCoset;
 use stwo::prover::backend::simd::m31::LOG_N_LANES;
 use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
 
-pub struct AnswerResults {}
+pub struct AnswerResults {
+    pub answers: Vec<IndexMap<usize, QM31Var>>,
+}
 
 impl AnswerResults {
     pub fn compute(
         fiat_shamir_hints: &CairoFiatShamirHints,
         fiat_shamir_results: &CairoFiatShamirResults,
         decommitment_results: &CairoDecommitmentResultsVar,
-        stark_proof: &StarkProofVar,
+        proof_var: &CairoProofVar,
     ) -> AnswerResults {
-        let cs = stark_proof.cs();
+        let cs = proof_var.cs();
 
         let preprocessed_trace_sample_result = PreprocessedTraceSampleResultVar::new(
             &cs,
-            &stark_proof.sampled_values[0],
-            &stark_proof.is_preprocessed_trace_present,
+            &proof_var.stark_proof.sampled_values[0],
+            &proof_var.stark_proof.is_preprocessed_trace_present,
         );
-        let trace_sample_result = TraceSampleResultVar::new(&cs, &stark_proof.sampled_values[1]);
-        let _ = InteractionSampleResultVar::new(&cs, &stark_proof.sampled_values[2]);
-        let _ = CompositionSampleResultVar::new(&stark_proof.sampled_values[3]);
-
-        let preprocessed_trace_quotient_constants = PreprocessedTraceQuotientConstantsVar::new(
-            &fiat_shamir_results.oods_point,
-            &preprocessed_trace_sample_result,
-        );
-        let _trace_quotient_constants =
-            TraceQuotientConstantsVar::new(&fiat_shamir_results.oods_point, &trace_sample_result);
+        let trace_sample_result =
+            TraceSampleResultVar::new(&cs, &proof_var.stark_proof.sampled_values[1]);
+        let interaction_sample_result =
+            InteractionSampleResultVar::new(&cs, &proof_var.stark_proof.sampled_values[2]);
+        let composition_sample_result =
+            CompositionSampleResultVar::new(&proof_var.stark_proof.sampled_values[3]);
 
         let shifted_points = {
             let mut map = IndexMap::new();
@@ -55,9 +53,22 @@ impl AnswerResults {
             ObliviousMapVar::new(map)
         };
 
-        for (k, v) in shifted_points.0.iter() {
-            println!("k: {}, v: {:?}, {:?}", k, v.x.value(), v.y.value());
-        }
+        let preprocessed_trace_quotient_constants = PreprocessedTraceQuotientConstantsVar::new(
+            &fiat_shamir_results.oods_point,
+            &preprocessed_trace_sample_result,
+        );
+        let trace_quotient_constants =
+            TraceQuotientConstantsVar::new(&fiat_shamir_results.oods_point, &trace_sample_result);
+        let interaction_quotient_constants = InteractionQuotientConstantsVar::new(
+            &proof_var.claim,
+            &fiat_shamir_results.oods_point,
+            &interaction_sample_result,
+            &shifted_points,
+        );
+        let composition_quotient_constants = CompositionQuotientConstantsVar::new(
+            &fiat_shamir_results.oods_point,
+            &composition_sample_result,
+        );
 
         let n_queries = fiat_shamir_hints.pcs_config.fri_config.n_queries as usize;
         let mut answer_accumulator = Vec::with_capacity(n_queries);
@@ -82,51 +93,75 @@ impl AnswerResults {
             })
             .collect();
 
-        /*let mut first_query = fiat_shamir_results.queries[0].compose().value.0;
-        for log_size in (LOG_N_LANES + 1..=25).rev() {
-            println!("log_size: {}, first_query: {:?}", log_size, CanonicCoset::new(log_size).circle_domain().at(bit_reverse_index(first_query as usize, log_size)));
-            first_query = first_query >> 1;
-        }
+        let [prx, pix] = fiat_shamir_results.oods_point.x.decompose_cm31();
+        let [pry, piy] = fiat_shamir_results.oods_point.y.decompose_cm31();
 
-        for log_size in (LOG_N_LANES..=24).rev() {
-            !("log_size: {}, first_query: {:?}", log_size, domain_points[&(log_size + 1)][0].value());
-        }*/
+        let denominator_inverses_with_oods_point: IndexMap<u32, Vec<CM31Var>> = {
+            domain_points
+                .iter()
+                .map(|(k, v)| {
+                    let v = v
+                        .iter()
+                        .map(|v| (&(&(&prx - &v.x) * &piy) - &(&(&pry - &v.y) * &pix)).inv())
+                        .collect_vec();
+                    (*k, v)
+                })
+                .collect()
+        };
 
-        let _ = compute_preprocessed_trace_answers(
-            1,
+        compute_preprocessed_trace_answers(
+            n_queries,
             &mut answer_accumulator,
-            &fiat_shamir_results.oods_point,
+            &piy,
             &domain_points,
+            &denominator_inverses_with_oods_point,
             &decommitment_results,
             &preprocessed_trace_quotient_constants,
         );
-
-        /*
-                log_size: 25, var value: (0 + 0i) + (0 + 0i)u
-        log_size: 24, var value: (0 + 0i) + (0 + 0i)u
-        log_size: 23, var value: (0 + 0i) + (1944166826 + 894738403i)u
-        log_size: 22, var value: (0 + 0i) + (861751153 + 972660099i)u
-        log_size: 21, var value: (0 + 0i) + (2103157637 + 1900325456i)u
-        log_size: 20, var value: (1625292024 + 2058587991i) + (519521732 + 1717532880i)u
-        log_size: 19, var value: (0 + 0i) + (0 + 0i)u
-        log_size: 18, var value: (1979153284 + 538717160i) + (1516035543 + 900327726i)u
-        log_size: 17, var value: (0 + 0i) + (1011589566 + 192960924i)u
-        log_size: 16, var value: (1627409145 + 190359572i) + (290893429 + 533236351i)u
-        log_size: 15, var value: (393985835 + 1978648156i) + (808010217 + 1485396030i)u
-        log_size: 14, var value: (1371768794 + 1916623345i) + (90932277 + 1709762822i)u
-        log_size: 13, var value: (0 + 0i) + (0 + 0i)u
-        log_size: 12, var value: (0 + 0i) + (1874693069 + 474694534i)u
-        log_size: 11, var value: (0 + 0i) + (2060517739 + 416729087i)u
-        log_size: 10, var value: (0 + 0i) + (0 + 0i)u
-        log_size: 9, var value: (1764556131 + 815989014i) + (842614346 + 1399271434i)u
-        log_size: 8, var value: (2044074597 + 355670411i) + (769872717 + 1631555242i)u
-        log_size: 7, var value: (1632611417 + 116463536i) + (749685714 + 1192653455i)u
-        log_size: 6, var value: (0 + 0i) + (554929574 + 592631363i)u
-        log_size: 5, var value: (0 + 0i) + (0 + 0i)u
-        log_size: 4, var value: (1199936415 + 1131571730i) + (1126919949 + 586753485i)u
-                 */
-
-        Self {}
+        compute_trace_answers(
+            n_queries,
+            &mut answer_accumulator,
+            &piy,
+            &domain_points,
+            &denominator_inverses_with_oods_point,
+            &decommitment_results,
+            &trace_quotient_constants,
+            &proof_var.claim,
+        );
+        compute_interaction_answers_without_shift(
+            n_queries,
+            &mut answer_accumulator,
+            &piy,
+            &domain_points,
+            &denominator_inverses_with_oods_point,
+            &decommitment_results,
+            &interaction_quotient_constants,
+            &proof_var.claim,
+        );
+        compute_composition_answers(
+            n_queries,
+            &mut answer_accumulator,
+            &piy,
+            &domain_points,
+            &denominator_inverses_with_oods_point,
+            &decommitment_results,
+            &composition_quotient_constants,
+            &fiat_shamir_results.composition_log_size,
+        );
+        compute_interaction_answers_shift_only(
+            n_queries,
+            &mut answer_accumulator,
+            &domain_points,
+            &decommitment_results,
+            &interaction_quotient_constants,
+            &proof_var.claim,
+        );
+        Self {
+            answers: answer_accumulator
+                .into_iter()
+                .map(|accumulator| accumulator.finalize())
+                .collect(),
+        }
     }
 }
 
@@ -167,7 +202,12 @@ mod test {
             &fiat_shamir_hints,
             &fiat_shamir_results,
             &decommitment_results,
-            &proof_var.stark_proof,
+            &proof_var,
         );
+
+        cs.pad();
+        cs.check_arithmetics();
+        cs.populate_logup_arguments();
+        cs.check_poseidon_invocations();
     }
 }
