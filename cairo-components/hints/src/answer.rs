@@ -1,13 +1,10 @@
 use cairo_air::CairoProof;
 use indexmap::IndexMap;
-use itertools::{izip, multiunzip, Itertools};
-use std::{cmp::Reverse, collections::BTreeMap};
+use itertools::Itertools;
+use std::cmp::Reverse;
 use stwo::core::{
-    fields::{m31::BaseField, qm31::SecureField},
-    pcs::{
-        quotients::{fri_answers_for_log_size, PointSample},
-        TreeVec,
-    },
+    fields::qm31::SecureField,
+    pcs::quotients::{PointSample, fri_answers},
     vcs::poseidon31_merkle::Poseidon31MerkleHasher,
 };
 
@@ -59,7 +56,7 @@ impl AnswerHints {
             &fiat_shamir_hints.query_positions_per_log_size,
             proof.stark_proof.queried_values.clone(),
             n_columns_per_log_size,
-        );
+        ).unwrap();
 
         let max_query = fiat_shamir_hints
             .query_positions_per_log_size
@@ -94,42 +91,6 @@ impl AnswerHints {
     }
 }
 
-pub fn fri_answers(
-    column_log_sizes: TreeVec<Vec<u32>>,
-    samples: TreeVec<Vec<Vec<PointSample>>>,
-    random_coeff: SecureField,
-    query_positions_per_log_size: &BTreeMap<u32, Vec<usize>>,
-    queried_values: TreeVec<Vec<BaseField>>,
-    n_columns_per_log_size: TreeVec<&BTreeMap<u32, usize>>,
-) -> Vec<Vec<SecureField>> {
-    let mut queried_values = queried_values.map(|values| values.into_iter());
-
-    izip!(column_log_sizes.flatten(), samples.flatten().iter())
-        .sorted_by_key(|(log_size, ..)| Reverse(*log_size))
-        .chunk_by(|(log_size, ..)| *log_size)
-        .into_iter()
-        .filter_map(|(log_size, tuples)| {
-            // Skip processing this log size if it does not have any associated queries.
-            let queries_for_log_size = query_positions_per_log_size.get(&log_size)?;
-
-            let (_, samples): (Vec<_>, Vec<_>) = multiunzip(tuples);
-            Some(
-                fri_answers_for_log_size(
-                    log_size,
-                    &samples,
-                    random_coeff,
-                    queries_for_log_size,
-                    &mut queried_values,
-                    n_columns_per_log_size
-                        .as_ref()
-                        .map(|columns_log_sizes| *columns_log_sizes.get(&log_size).unwrap_or(&0)),
-                )
-                .unwrap(),
-            )
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,7 +98,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_answers_hints() {
+    fn test_answer_hints() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let data_path = PathBuf::from(manifest_dir)
             .parent()
@@ -147,6 +108,8 @@ mod tests {
 
         let proof = deserialize_proof_from_file(&data_path, ProofFormat::Binary).unwrap();
         let fiat_shamir_hints = CairoFiatShamirHints::new(&proof);
-        let _ = AnswerHints::new(&fiat_shamir_hints, &proof);
+        let answer_hints = AnswerHints::new(&fiat_shamir_hints, &proof);
+
+        fiat_shamir_hints.fri_verifier.decommit(answer_hints.answers_log_sizes.clone()).unwrap();
     }
 }

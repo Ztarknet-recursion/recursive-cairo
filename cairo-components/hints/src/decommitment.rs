@@ -197,15 +197,7 @@ impl QueryDecommitmentProof {
             };
 
             for log_size in (0..max_log_size).rev() {
-                if log_size > max_effective_log_size {
-                    nodes.insert(
-                        log_size as usize,
-                        QueryDecommitmentNode {
-                            children: Default::default(),
-                            value: vec![],
-                        },
-                    );
-                } else {
+                if log_size <= max_effective_log_size {
                     let layer = layers.get(&(log_size as u32)).unwrap();
                     let node = layer.get(&cur).unwrap();
                     nodes.insert(log_size as usize, node.clone());
@@ -422,17 +414,17 @@ mod tests {
         let column_hashes = decommitment_hints.preprocessed_trace[0].compute_column_hashes();
         for (idx, node) in decommitment_proof.intermediate_layers.iter() {
             if !node.value.is_empty() {
-                assert_eq!(
-                    column_hashes
-                        .get(
-                            &(idx
-                                - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
-                                    as usize)
-                        )
-                        .unwrap(),
-                    &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
-                );
-            }
+                    assert_eq!(
+                        column_hashes
+                            .get(
+                                &(idx
+                                    - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
+                                        as usize)
+                            )
+                            .unwrap(),
+                        &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
+                    );
+                }
         }
 
         let decommitment_proof = decommitment_hints.trace_decommitment_proofs[0].clone();
@@ -451,17 +443,17 @@ mod tests {
 
         for (idx, node) in decommitment_proof.intermediate_layers.iter() {
             if !node.value.is_empty() {
-                assert_eq!(
-                    column_hashes
-                        .get(
-                            &(idx
-                                - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
-                                    as usize)
-                        )
-                        .unwrap(),
-                    &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
-                );
-            }
+                    assert_eq!(
+                        column_hashes
+                            .get(
+                                &(idx
+                                    - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
+                                        as usize)
+                            )
+                            .unwrap(),
+                        &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
+                    );
+                }
         }
 
         let decommitment_proof = decommitment_hints.interaction_decommitment_proofs[0].clone();
@@ -480,16 +472,16 @@ mod tests {
 
         for (idx, node) in decommitment_proof.intermediate_layers.iter() {
             if !node.value.is_empty() {
-                assert_eq!(
-                    column_hashes
-                        .get(
-                            &(idx
-                                - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
-                                    as usize)
-                        )
-                        .unwrap(),
-                    &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
-                );
+                    assert_eq!(
+                        column_hashes
+                            .get(
+                                &(idx
+                                    - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
+                                        as usize)
+                            )
+                            .unwrap(),
+                        &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
+                    );
             }
         }
 
@@ -509,18 +501,18 @@ mod tests {
         );
 
         for (idx, node) in decommitment_proof.intermediate_layers.iter() {
-            if !node.value.is_empty() {
-                assert_eq!(
-                    column_hashes
-                        .get(
-                            &(idx
-                                - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
-                                    as usize)
-                        )
-                        .unwrap(),
-                    &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
-                );
-            }
+             if !node.value.is_empty() {
+                    assert_eq!(
+                        column_hashes
+                            .get(
+                                &(idx
+                                    - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor
+                                        as usize)
+                            )
+                            .unwrap(),
+                        &Poseidon31MerkleHasher::hash_column_get_capacity(&node.value)
+                    );
+                }
         }
     }
 }

@@ -190,7 +190,7 @@ impl CairoFiatShamirResults {
             random_coeff,
             after_sampled_values_random_coeff,
             interaction_elements,
-            max_log_size: max_trace_and_interaction_log_size,
+            max_log_size,
             queries,
             query_log_size,
             composition_log_size,
