@@ -48,7 +48,10 @@ pub struct CairoFiatShamirHints {
     pub n_preprocessed_columns: usize,
 
     pub raw_queries: Vec<usize>,
+    pub unsorted_query_positions_per_log_size: BTreeMap<u32, Vec<usize>>,
     pub query_positions_per_log_size: BTreeMap<u32, Vec<usize>>,
+    pub max_first_layer_column_log_size: u32,
+    pub fri_alphas: Vec<SecureField>,
 
     pub commitment_scheme_verifier: CommitmentSchemeVerifier<Poseidon31MerkleChannel>,
     pub fri_verifier: FriVerifier<Poseidon31MerkleChannel>,
@@ -415,6 +418,12 @@ impl CairoFiatShamirHints {
         )
         .unwrap();
 
+        let mut fri_alphas = vec![];
+        fri_alphas.push(fri_verifier.first_layer.folding_alpha);
+        for layer in fri_verifier.inner_layers.iter() {
+            fri_alphas.push(layer.folding_alpha);
+        }
+
         println!(
             "number of inner layers: {:?}",
             fri_verifier.inner_layers.len()
@@ -447,6 +456,29 @@ impl CairoFiatShamirHints {
                 query_log_size,
                 commitment_scheme_verifier.config.fri_config.n_queries,
             )
+        };
+
+        let all_log_sizes = fri_verifier
+            .first_layer
+            .column_commitment_domains
+            .iter()
+            .map(|domain| domain.log_size())
+            .collect::<BTreeSet<u32>>();
+        let max_first_layer_column_log_size = *all_log_sizes.iter().max().unwrap();
+
+        // Get FRI query positions.
+        let unsorted_query_positions_per_log_size = {
+            let mut map = BTreeMap::new();
+            for &log_size in all_log_sizes.iter() {
+                map.insert(
+                    log_size,
+                    raw_queries
+                        .iter()
+                        .map(|x| (x >> (max_first_layer_column_log_size - log_size)) as usize)
+                        .collect_vec(),
+                );
+            }
+            map
         };
 
         // Get FRI query positions.
@@ -488,6 +520,10 @@ impl CairoFiatShamirHints {
             composition_log_size,
             n_preprocessed_columns,
             raw_queries,
+
+            fri_alphas,
+            unsorted_query_positions_per_log_size,
+            max_first_layer_column_log_size,
             query_positions_per_log_size,
 
             commitment_scheme_verifier,

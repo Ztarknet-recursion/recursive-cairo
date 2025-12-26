@@ -4,9 +4,11 @@ use cairo_air::CairoProof;
 use itertools::{zip_eq, Itertools};
 use num_traits::Zero;
 use stwo::core::{
+    circle::Coset,
     fields::{
         m31::M31,
         qm31::{SecureField, QM31, SECURE_EXTENSION_DEGREE},
+        FieldExpOps,
     },
     fri::SparseEvaluation,
     utils::bit_reverse_index,
@@ -355,9 +357,8 @@ impl FirstLayerHints {
             folded_evals_by_column.insert(
                 column_domain.log_size(),
                 sparse_evaluation.fold_circle(
-                    fiat_shamir_hints.fri_verifier.inner_layers
-                        [(max_column_log_size - column_domain.log_size()) as usize]
-                        .folding_alpha,
+                    fiat_shamir_hints.fri_alphas
+                        [(max_column_log_size - column_domain.log_size()) as usize],
                     column_domain,
                 ),
             );
@@ -449,6 +450,133 @@ impl FirstLayerHints {
     }
 }
 
+pub struct InnerLayersHints {
+    pub merkle_proofs: BTreeMap<u32, Vec<SinglePairMerkleProof>>,
+    pub folded_intermediate_results: BTreeMap<u32, BTreeMap<usize, SecureField>>,
+}
+
+impl InnerLayersHints {
+    pub fn compute(
+        folded_evals_by_column: &BTreeMap<u32, Vec<SecureField>>,
+        fiat_shamir_hints: &CairoFiatShamirHints,
+        proof: &CairoProof<Poseidon31MerkleHasher>,
+    ) -> InnerLayersHints {
+        let mut log_size = fiat_shamir_hints.max_first_layer_column_log_size;
+
+        let mut folded = BTreeMap::new();
+        for i in fiat_shamir_hints
+            .unsorted_query_positions_per_log_size
+            .get(&log_size)
+            .unwrap()
+            .iter()
+            .map(|v| (*v) >> 1)
+        {
+            folded.insert(i, QM31::zero());
+        }
+
+        let mut all_merkle_proofs = BTreeMap::new();
+        let mut all_folded_intermediate_results = BTreeMap::new();
+
+        for (i, inner_layer) in proof.stark_proof.fri_proof.inner_layers.iter().enumerate() {
+            if let Some(folded_into) = folded_evals_by_column.get(&log_size) {
+                assert_eq!(folded_into.len(), folded.len());
+                for ((_, v), b) in folded.iter_mut().zip(folded_into.iter()) {
+                    *v = fiat_shamir_hints.fri_alphas[i].square() * *v + *b;
+                }
+            }
+
+            log_size -= 1;
+
+            let domain = Coset::half_odds(log_size);
+
+            let mut fri_witness = inner_layer.fri_witness.iter();
+            let mut new_folded = BTreeMap::new();
+            let mut decommitmented = BTreeMap::new();
+
+            for (k, &v) in folded.iter() {
+                let sibling_v = if let Some(&sibling_v) = folded.get(&(k ^ 1)) {
+                    sibling_v
+                } else {
+                    *fri_witness.next().unwrap()
+                };
+
+                let (left_v, right_v) = if k & 1 == 0 {
+                    (v, sibling_v)
+                } else {
+                    (sibling_v, v)
+                };
+
+                let folded_query = k >> 1;
+                let left_idx = folded_query << 1;
+                let right_idx = left_idx + 1;
+
+                decommitmented.insert(left_idx, left_v);
+                decommitmented.insert(right_idx, right_v);
+
+                let point = domain.at(bit_reverse_index(left_idx, log_size));
+                let x_inv = point.x.inverse();
+
+                let new_left_v = left_v + right_v;
+                let new_right_v = (left_v - right_v) * x_inv;
+                let folded_value = new_left_v + new_right_v * fiat_shamir_hints.fri_alphas[i + 1];
+
+                new_folded.insert(folded_query, folded_value);
+            }
+
+            let decommitment_positions = decommitmented.keys().copied().collect_vec();
+            let decommitmented_values = decommitmented
+                .values()
+                .map(|v| v.to_m31_array())
+                .flatten()
+                .collect_vec();
+
+            let merkle_verifier: MerkleVerifier<Poseidon31MerkleHasher> = MerkleVerifier::new(
+                inner_layer.commitment,
+                vec![log_size; SECURE_EXTENSION_DEGREE],
+            );
+            merkle_verifier
+                .verify(
+                    &BTreeMap::from_iter([(log_size, decommitment_positions)]),
+                    decommitmented_values.clone(),
+                    inner_layer.decommitment.clone(),
+                )
+                .unwrap();
+
+            let merkle_proofs = SinglePairMerkleProof::from_stwo_proof(
+                &BTreeSet::from([log_size]),
+                inner_layer.commitment.clone(),
+                &fiat_shamir_hints
+                    .unsorted_query_positions_per_log_size
+                    .get(&fiat_shamir_hints.max_first_layer_column_log_size)
+                    .unwrap()
+                    .iter()
+                    .map(|v| *v >> (fiat_shamir_hints.max_first_layer_column_log_size - log_size))
+                    .collect_vec(),
+                &decommitmented_values,
+                &inner_layer.decommitment,
+            );
+            for merkle_proof in merkle_proofs.iter() {
+                merkle_proof.verify();
+            }
+            all_merkle_proofs.insert(log_size, merkle_proofs);
+
+            assert!(fri_witness.next().is_none());
+            all_folded_intermediate_results.insert(log_size, folded.clone());
+            folded = new_folded;
+        }
+
+        for (_, v) in folded.iter() {
+            assert_eq!(proof.stark_proof.fri_proof.last_layer_poly.coeffs.len(), 1);
+            assert_eq!(*v, proof.stark_proof.fri_proof.last_layer_poly.coeffs[0]);
+        }
+
+        Self {
+            merkle_proofs: all_merkle_proofs,
+            folded_intermediate_results: all_folded_intermediate_results,
+        }
+    }
+}
+
 pub struct CairoFoldingHints {}
 
 impl CairoFoldingHints {
@@ -488,7 +616,16 @@ impl CairoFoldingHints {
                 .len()
         );
 
-        let _first_layer_hints = FirstLayerHints::compute(fiat_shamir_hints, answer_hints, proof);
+        let first_layer_hints = FirstLayerHints::compute(fiat_shamir_hints, answer_hints, &proof);
+        for proof in first_layer_hints.merkle_proofs.iter() {
+            proof.verify();
+        }
+
+        let _inner_layers_hints = InnerLayersHints::compute(
+            &first_layer_hints.folded_evals_by_column,
+            &fiat_shamir_hints,
+            &proof,
+        );
 
         Self {}
     }
