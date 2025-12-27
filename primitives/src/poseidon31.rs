@@ -138,6 +138,7 @@ impl Poseidon2HalfVar {
     }
 
     pub fn to_qm31(&self) -> [QM31Var; 2] {
+        assert!(self.sel_value != 0, "this is a single-use witness");
         let cs = self.cs();
         [
             QM31Var {

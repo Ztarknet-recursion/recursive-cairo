@@ -491,7 +491,7 @@ impl CairoFiatShamirHints {
                 .map(|domain| domain.log_size())
                 .collect::<BTreeSet<u32>>();
             let max_column_log_size = *column_log_sizes.iter().max().unwrap();
-            println!("max_log_size: {}", max_column_log_size);
+            println!("max_column_log_size: {}", max_column_log_size);
         }
 
         println!(

@@ -34,6 +34,7 @@ use crate::CairoFiatShamirHints;
 #[derive(Debug, Clone)]
 pub struct QueryDecommitmentProof {
     pub query: usize,
+    pub max_effective_log_size: u32,
     pub log_blowup_factor: u32,
     pub leaf_values: Vec<M31>,
     pub intermediate_layers: IndexMap<usize, QueryDecommitmentNode>,
@@ -72,12 +73,12 @@ impl QueryDecommitmentProof {
     ) -> Vec<QueryDecommitmentProof> {
         let mut layers = IndexMap::new();
 
-        let max_log_size = *merkle_verifier.column_log_sizes.iter().max().unwrap();
+        let max_tree_log_size = *merkle_verifier.column_log_sizes.iter().max().unwrap();
         let max_effective_log_size = *queries_per_log_size.keys().max().unwrap();
 
         println!(
-            "max_log_size = {}, max_effective_log_size = {}",
-            max_log_size, max_effective_log_size
+            "max_tree_log_size = {}, max_effective_log_size = {}",
+            max_tree_log_size, max_effective_log_size
         );
 
         let mut queried_values = queried_values.into_iter();
@@ -85,7 +86,7 @@ impl QueryDecommitmentProof {
         let mut column_witness = decommitment.column_witness.into_iter();
 
         let mut last_layer_hashes: Option<Vec<(usize, Poseidon31Hash)>> = None;
-        for layer_log_size in (0..=max_log_size).rev() {
+        for layer_log_size in (0..=max_tree_log_size).rev() {
             let mut layer = IndexMap::new();
 
             let n_columns_in_layer = *merkle_verifier
@@ -187,11 +188,11 @@ impl QueryDecommitmentProof {
             let mut cur = *query;
 
             let leaf_values = {
-                if max_log_size > max_effective_log_size {
+                if max_tree_log_size > max_effective_log_size {
                     vec![]
                 } else {
                     layers
-                        .get(&max_log_size)
+                        .get(&max_tree_log_size)
                         .unwrap()
                         .get(query)
                         .unwrap()
@@ -200,7 +201,7 @@ impl QueryDecommitmentProof {
                 }
             };
 
-            for log_size in (0..=max_log_size).rev() {
+            for log_size in (0..=max_tree_log_size).rev() {
                 if log_size <= max_effective_log_size {
                     let layer = layers.get(&log_size).unwrap();
                     let node = layer.get(&cur).unwrap();
@@ -211,6 +212,7 @@ impl QueryDecommitmentProof {
 
             let proof = QueryDecommitmentProof {
                 query: *query,
+                max_effective_log_size,
                 log_blowup_factor,
                 leaf_values,
                 intermediate_layers: nodes,
@@ -439,7 +441,7 @@ mod tests {
             leaf_layer_hash,
             *column_hashes
                 .get(
-                    &(decommitment_proof.intermediate_layers.len()
+                    &(decommitment_proof.intermediate_layers.keys().max().unwrap()
                         - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor as usize)
                 )
                 .unwrap()
@@ -468,7 +470,7 @@ mod tests {
             leaf_layer_hash,
             *column_hashes
                 .get(
-                    &(decommitment_proof.intermediate_layers.len()
+                    &(decommitment_proof.intermediate_layers.keys().max().unwrap()
                         - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor as usize)
                 )
                 .unwrap()
@@ -498,7 +500,7 @@ mod tests {
             leaf_layer_hash,
             *column_hashes
                 .get(
-                    &(decommitment_proof.intermediate_layers.len()
+                    &(decommitment_proof.intermediate_layers.keys().max().unwrap()
                         - fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor as usize)
                 )
                 .unwrap()

@@ -116,9 +116,6 @@ impl InteractionQueryResult {
         );
         self.range_checks.update_hashes(&mut columns_hasher);
         self.verify_bitwise.update_hashes(&mut columns_hasher);
-        for (k, v) in columns_hasher.0.iter() {
-            println!("k: {}, v: {:?}", k, v.finalize());
-        }
 
         let mut map = IndexMap::new();
         for (log_size, hash) in columns_hasher.0 {

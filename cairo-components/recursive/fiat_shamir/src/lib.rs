@@ -97,6 +97,8 @@ impl CairoFiatShamirResults {
             max_preprocessed_trace_log_size.max(&max_trace_and_interaction_log_size, 5);
         let composition_log_size = &max_log_size + &M31Var::one(&cs);
 
+        println!("max_log_size: {:?}", max_log_size.value);
+
         channel.mix_root(&proof.stark_proof.fri_proof.first_layer.commitment);
         let first_layer_alpha = channel.draw_felts()[0].clone();
 

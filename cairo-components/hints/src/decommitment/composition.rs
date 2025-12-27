@@ -45,8 +45,6 @@ pub fn read_composition(
         proof.stark_proof.config.fri_config.n_queries,
     );
 
-    println!("pad: {:?}", pad[0]);
-
     let mut results = Vec::new();
     for c in pad
         .iter()
