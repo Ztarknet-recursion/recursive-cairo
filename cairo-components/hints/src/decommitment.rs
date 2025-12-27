@@ -75,7 +75,10 @@ impl QueryDecommitmentProof {
         let max_log_size = *merkle_verifier.column_log_sizes.iter().max().unwrap();
         let max_effective_log_size = *queries_per_log_size.keys().max().unwrap();
 
-        println!("max_log_size = {}, max_effective_log_size = {}", max_log_size, max_effective_log_size);
+        println!(
+            "max_log_size = {}, max_effective_log_size = {}",
+            max_log_size, max_effective_log_size
+        );
 
         let mut queried_values = queried_values.into_iter();
         let mut hash_witness = decommitment.hash_witness.into_iter();
