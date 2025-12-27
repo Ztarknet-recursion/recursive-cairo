@@ -26,6 +26,7 @@ use crate::{AnswerHints, CairoFiatShamirHints};
 #[derive(Clone)]
 pub struct SinglePairMerkleProof {
     pub query: usize,
+    pub log_blowup_factor: u32,
 
     pub sibling_hashes: Vec<Poseidon31Hash>,
     pub self_columns: BTreeMap<usize, QM31>,
@@ -102,6 +103,7 @@ impl SinglePairMerkleProof {
         leaf_queries: &[usize],
         values: &[M31],
         decommitment: &MerkleDecommitment<Poseidon31MerkleHasher>,
+        log_blowup_factor: u32,
     ) -> Vec<SinglePairMerkleProof> {
         // require the column witness to be empty
         // (all the values are provided)
@@ -285,6 +287,7 @@ impl SinglePairMerkleProof {
                 siblings_columns,
                 root,
                 depth: max_log_size as usize,
+                log_blowup_factor,
             };
             proof.verify();
             proofs.push(proof);
@@ -402,6 +405,7 @@ impl FirstLayerHints {
             &fiat_shamir_hints.raw_queries,
             &decommitmented_values,
             &proof.stark_proof.fri_proof.first_layer.decommitment,
+            fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor,
         );
 
         FirstLayerHints {
@@ -553,6 +557,7 @@ impl InnerLayersHints {
                     .collect_vec(),
                 &decommitmented_values,
                 &inner_layer.decommitment,
+                fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor,
             );
             for merkle_proof in merkle_proofs.iter() {
                 merkle_proof.verify();
@@ -576,7 +581,10 @@ impl InnerLayersHints {
     }
 }
 
-pub struct CairoFoldingHints {}
+pub struct CairoFoldingHints {
+    pub first_layer_hints: FirstLayerHints,
+    pub inner_layers_hints: InnerLayersHints,
+}
 
 impl CairoFoldingHints {
     pub fn new(
@@ -620,13 +628,16 @@ impl CairoFoldingHints {
             proof.verify();
         }
 
-        let _inner_layers_hints = InnerLayersHints::compute(
+        let inner_layers_hints = InnerLayersHints::compute(
             &first_layer_hints.folded_evals_by_column,
             fiat_shamir_hints,
             proof,
         );
 
-        Self {}
+        Self {
+            first_layer_hints,
+            inner_layers_hints,
+        }
     }
 }
 
