@@ -57,7 +57,7 @@ impl PaddedQueryBits {
 
 pub struct PaddedSinglePairMerkleProofVar {
     pub cs: ConstraintSystemRef,
-    pub value: SinglePairMerkleProof,
+    pub log_blowup_factor: u32,
     pub sibling_hashes: IndexMap<usize, HashVar>,
     pub columns: IndexMap<usize, OptionVar<(QM31Var, QM31Var)>>,
 }
@@ -129,7 +129,7 @@ impl AllocVar for PaddedSinglePairMerkleProofVar {
 
         Self {
             cs: cs.clone(),
-            value: value.clone(),
+            log_blowup_factor,
             sibling_hashes,
             columns,
         }
@@ -138,15 +138,11 @@ impl AllocVar for PaddedSinglePairMerkleProofVar {
 
 impl PaddedSinglePairMerkleProofVar {
     pub fn verify(&self, root: &HashVar, query: &PaddedQueryBits, max_log_size: &M31Var) {
-        // verify that the Merkle proof is valid
-        self.value.verify();
-        assert_eq!(root.value(), self.value.root.0);
-
         let cs = self.cs();
 
         let last_column = self
             .columns
-            .get(&((MAX_SEQUENCE_LOG_SIZE + self.value.log_blowup_factor) as usize))
+            .get(&((MAX_SEQUENCE_LOG_SIZE + self.log_blowup_factor) as usize))
             .unwrap();
 
         let mut self_hash =
@@ -159,7 +155,7 @@ impl PaddedSinglePairMerkleProofVar {
             &M31::from(MAX_SEQUENCE_LOG_SIZE),
         ));
 
-        for h in (0..MAX_SEQUENCE_LOG_SIZE + self.value.log_blowup_factor).rev() {
+        for h in (0..MAX_SEQUENCE_LOG_SIZE + self.log_blowup_factor).rev() {
             let query_bit = query.lsb.get(&h).unwrap();
 
             self_hash = if let Some(column_opt) = self.columns.get(&(h as usize)) {
@@ -257,7 +253,7 @@ impl PaddedSinglePairMerkleProofVar {
             is_hash_active = &is_hash_active
                 | &max_log_size.is_eq(&M31Var::new_constant(
                     &cs,
-                    &M31::from(h as i32 - self.value.log_blowup_factor as i32),
+                    &M31::from(h as i32 - self.log_blowup_factor as i32),
                 ));
         }
 
@@ -267,6 +263,14 @@ impl PaddedSinglePairMerkleProofVar {
         // as though in self.root
         self_hash.equalverify(root);
     }
+}
+
+pub struct LeafOnlySinglePairMerkleProofVar {
+    pub cs: ConstraintSystemRef,
+    pub max_log_size: usize,
+    pub self_column: QM31Var,
+    pub sibling_column: QM31Var,
+    pub sibling_hashes: IndexMap<usize, HashVar>,
 }
 
 pub struct FoldingResults {}
@@ -280,8 +284,6 @@ impl FoldingResults {
         proof_var: &CairoProofVar,
     ) -> Self {
         let cs = fiat_shamir_results.max_log_size.cs();
-
-        println!("max_log_size: {:?}", fiat_shamir_results.max_log_size.value);
 
         for (i, proof) in folding_hints
             .first_layer_hints
@@ -336,40 +338,6 @@ impl FoldingResults {
                 let is_first_layer = fiat_shamir_results
                     .max_log_size
                     .is_eq(&M31Var::new_constant(&cs, &M31::from(h)));
-
-                println!("================================================");
-                println!("h: {:?}", h);
-                println!("is_first_layer: {:?}", is_first_layer.value());
-                println!("is_layer_present: {:?}", is_layer_present.value());
-                println!(
-                    "inner layer alpha present?: {:?}",
-                    fiat_shamir_results.inner_layers_alphas.contains_key(&h)
-                );
-                if fiat_shamir_results.inner_layers_alphas.contains_key(&h)
-                    && fiat_shamir_results
-                        .inner_layers_alphas
-                        .get(&h)
-                        .unwrap()
-                        .is_some
-                        .value()
-                {
-                    println!(
-                        "inner layer alpha: {:?}",
-                        fiat_shamir_results
-                            .inner_layers_alphas
-                            .get(&h)
-                            .unwrap()
-                            .value
-                            .value()
-                    );
-                }
-                if is_first_layer.value() {
-                    println!(
-                        "first layer alpha: {:?}",
-                        fiat_shamir_results.first_layer_alpha.value()
-                    );
-                }
-                println!("================================================");
 
                 let proof_column = proof
                     .columns

@@ -24,6 +24,7 @@ cairo-air = { git = "https://github.com/Ztarknet-recursion/stwo-cairo-fork" }
 stwo-cairo-common = { git = "https://github.com/Ztarknet-recursion/stwo-cairo-fork" }
 stwo-cairo-serialize = { git = "https://github.com/Ztarknet-recursion/stwo-cairo-fork" }
 starknet-ff = "0.3.7"
+zmij = "=1.0.0"
 
 [profile.release]
 opt-level = 3
