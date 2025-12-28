@@ -14,6 +14,7 @@ use cairo_plonk_dsl_decommitment::CairoDecommitmentResultsVar;
 use cairo_plonk_dsl_fiat_shamir::CairoFiatShamirResults;
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_primitives::oblivious_map::ObliviousMapVar;
+use circle_plonk_dsl_primitives::option::OptionVar;
 use circle_plonk_dsl_primitives::{CM31Var, CirclePointM31Var, QM31Var};
 pub use data_structures::*;
 
@@ -25,7 +26,8 @@ use stwo::prover::backend::simd::m31::LOG_N_LANES;
 use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
 
 pub struct AnswerResults {
-    pub answers: Vec<IndexMap<usize, QM31Var>>,
+    pub answers: Vec<IndexMap<usize, OptionVar<QM31Var>>>,
+    pub query_positions_var: CairoQueryPositionsPerLogSizeVar,
 }
 
 impl AnswerResults {
@@ -169,6 +171,7 @@ impl AnswerResults {
                 .into_iter()
                 .map(|accumulator| accumulator.finalize())
                 .collect(),
+            query_positions_var,
         }
     }
 }

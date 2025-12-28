@@ -13,8 +13,8 @@ use circle_plonk_dsl_constraint_system::{
     ConstraintSystemRef,
 };
 use circle_plonk_dsl_primitives::{
-    BitVar, BitsVar, CM31Var, CirclePointQM31Var, LogSizeVar, M31Var, PointCarryingQueryVar,
-    QM31Var,
+    option::OptionVar, BitVar, BitsVar, CM31Var, CirclePointQM31Var, LogSizeVar, M31Var,
+    PointCarryingQueryVar, QM31Var,
 };
 use indexmap::IndexMap;
 use num_traits::Zero;
@@ -149,10 +149,18 @@ impl AnswerAccumulator {
         }
     }
 
-    pub fn finalize(&self) -> IndexMap<usize, QM31Var> {
+    pub fn finalize(&self) -> IndexMap<usize, OptionVar<QM31Var>> {
         self.map
             .iter()
-            .map(|(k, (answer, _))| (*k, answer.clone()))
+            .map(|(k, (answer, multiplier))| {
+                let is_some = multiplier
+                    .is_eq(&QM31Var::new_constant(
+                        &answer.cs,
+                        &QM31::from_m31(M31::zero(), M31::zero(), M31::from(2).neg(), M31::zero()),
+                    ))
+                    .neg();
+                (*k, OptionVar::new(is_some, answer.clone()))
+            })
             .collect()
     }
 }

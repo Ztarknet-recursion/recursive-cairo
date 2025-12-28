@@ -9,8 +9,8 @@ use cairo_plonk_dsl_data_structures::{
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_primitives::{
-    channel::ConditionalChannelMixer, BitIntVar, BitVar, BitsVar, ChannelVar, CirclePointQM31Var,
-    M31Var, Poseidon2HalfVar, QM31Var,
+    channel::ConditionalChannelMixer, option::OptionVar, BitIntVar, BitVar, BitsVar, ChannelVar,
+    CirclePointQM31Var, M31Var, Poseidon2HalfVar, QM31Var,
 };
 use indexmap::IndexMap;
 use stwo::core::{fields::m31::M31, vcs::poseidon31_hash::Poseidon31Hash};
@@ -30,7 +30,7 @@ pub struct CairoFiatShamirResults {
     pub composition_log_size: M31Var,
 
     pub first_layer_alpha: QM31Var,
-    pub inner_layers_alphas: IndexMap<u32, QM31Var>,
+    pub inner_layers_alphas: IndexMap<u32, OptionVar<QM31Var>>,
 }
 
 impl CairoFiatShamirResults {
@@ -97,8 +97,6 @@ impl CairoFiatShamirResults {
             max_preprocessed_trace_log_size.max(&max_trace_and_interaction_log_size, 5);
         let composition_log_size = &max_log_size + &M31Var::one(&cs);
 
-        println!("max_log_size: {:?}", max_log_size.value);
-
         channel.mix_root(&proof.stark_proof.fri_proof.first_layer.commitment);
         let first_layer_alpha = channel.draw_felts()[0].clone();
 
@@ -121,7 +119,7 @@ impl CairoFiatShamirResults {
                     .commitment,
             );
             let alpha = channel.draw_felts()[0].clone();
-            inner_layers_alphas.insert(layer_log_size, alpha);
+            inner_layers_alphas.insert(layer_log_size, OptionVar::new(skip.neg(), alpha));
 
             let candidate_channel = channel.digest.to_qm31();
 

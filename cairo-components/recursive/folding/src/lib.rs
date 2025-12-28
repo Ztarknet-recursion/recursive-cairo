@@ -1,24 +1,64 @@
+use cairo_plonk_dsl_answer::AnswerResults;
 use cairo_plonk_dsl_data_structures::CairoProofVar;
 use cairo_plonk_dsl_fiat_shamir::CairoFiatShamirResults;
-use cairo_plonk_dsl_hints::folding::{CairoFoldingHints, SinglePairMerkleProof};
+use cairo_plonk_dsl_hints::{
+    folding::{CairoFoldingHints, SinglePairMerkleProof},
+    CairoFiatShamirHints,
+};
 use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
 use circle_plonk_dsl_primitives::{
-    option::OptionVar, BitVar, BitsVar, HashVar, Poseidon2HalfVar, Poseidon31MerkleHasherVar,
-    QM31Var,
+    option::OptionVar, BitVar, BitsVar, HashVar, M31Var, Poseidon2HalfVar,
+    Poseidon31MerkleHasherVar, QM31Var,
 };
 use indexmap::IndexMap;
 use num_traits::Zero;
-use stwo::core::fields::qm31::QM31;
+use stwo::core::{
+    fields::{m31::M31, qm31::QM31},
+    vcs::poseidon31_hash::Poseidon31Hash,
+};
 use stwo::prover::backend::simd::m31::LOG_N_LANES;
 use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
+
+pub struct PaddedQueryBits {
+    pub lsb: IndexMap<u32, BitVar>,
+}
+
+impl PaddedQueryBits {
+    pub fn compute(query: &BitsVar, log_blowup_factor: u32, max_log_size: &M31Var) -> Self {
+        let cs = max_log_size.cs();
+        let mut query_bits = query.clone();
+
+        let mut is_hash_active = max_log_size.is_eq(&M31Var::new_constant(
+            &cs,
+            &M31::from(MAX_SEQUENCE_LOG_SIZE),
+        ));
+        let mut lsb = IndexMap::new();
+
+        for h in (0..MAX_SEQUENCE_LOG_SIZE + log_blowup_factor).rev() {
+            lsb.insert(h, query_bits.0[0].clone());
+
+            let mut shifted_bits = query_bits.0[1..].to_vec();
+            shifted_bits.push(BitVar::new_false(&cs));
+            query_bits = BitsVar::select(&query_bits, &BitsVar(shifted_bits), &is_hash_active);
+
+            is_hash_active = &is_hash_active
+                | &max_log_size.is_eq(&M31Var::new_constant(
+                    &cs,
+                    &M31::from(h as i32 - log_blowup_factor as i32),
+                ));
+        }
+
+        Self { lsb }
+    }
+}
 
 pub struct PaddedSinglePairMerkleProofVar {
     pub cs: ConstraintSystemRef,
     pub value: SinglePairMerkleProof,
-    pub sibling_hashes: Vec<HashVar>,
+    pub sibling_hashes: IndexMap<usize, HashVar>,
     pub columns: IndexMap<usize, OptionVar<(QM31Var, QM31Var)>>,
 }
 
@@ -38,13 +78,23 @@ impl AllocVar for PaddedSinglePairMerkleProofVar {
     ) -> Self {
         let log_blowup_factor = value.log_blowup_factor;
 
-        let mut sibling_hashes = vec![];
-        for sibling_hash in value.sibling_hashes.iter() {
-            sibling_hashes.push(HashVar::new_variables(cs, sibling_hash, mode));
+        let l = value.sibling_hashes.len();
+
+        let mut sibling_hashes = IndexMap::new();
+        for i in 0..l {
+            sibling_hashes.insert(
+                i + 1,
+                HashVar::new_variables(cs, &value.sibling_hashes[l - 1 - i], mode),
+            );
+        }
+        for i in l + 1..(MAX_SEQUENCE_LOG_SIZE + log_blowup_factor) as usize {
+            sibling_hashes.insert(
+                i,
+                HashVar::new_variables(cs, &Poseidon31Hash::default(), mode),
+            );
         }
 
         let mut columns = IndexMap::new();
-
         // Pad columns for indices from LOG_N_LANES + 1..=MAX_SEQUENCE_LOG_SIZE + 1
         for index in (((LOG_N_LANES + log_blowup_factor) as usize)
             ..=((MAX_SEQUENCE_LOG_SIZE + log_blowup_factor) as usize))
@@ -87,34 +137,32 @@ impl AllocVar for PaddedSinglePairMerkleProofVar {
 }
 
 impl PaddedSinglePairMerkleProofVar {
-    pub fn verify(&mut self, root: &HashVar, query: &BitsVar) {
+    pub fn verify(&self, root: &HashVar, query: &PaddedQueryBits, max_log_size: &M31Var) {
         // verify that the Merkle proof is valid
         self.value.verify();
         assert_eq!(root.value(), self.value.root.0);
-        assert_eq!(query.get_value().0, self.value.query as u32);
 
-        // TODO: Remove dependency on self.value.depth - the code should work for any depth
-        // Currently assumes depth is in the padded range. Need to handle cases where depth
-        // is outside the padded range or make depth dynamic.
-        // Get the column pair at depth
-        let depth_column = self.columns.get(&self.value.depth).unwrap();
+        let cs = self.cs();
 
-        // assumption: the depth level must have values
+        let last_column = self
+            .columns
+            .get(&((MAX_SEQUENCE_LOG_SIZE + self.value.log_blowup_factor) as usize))
+            .unwrap();
+
         let mut self_hash =
-            Poseidon31MerkleHasherVar::hash_qm31_columns_get_rate(&[depth_column.value.0.clone()]);
+            Poseidon31MerkleHasherVar::hash_qm31_columns_get_rate(&[last_column.value.0.clone()]);
         let mut sibling_hash =
-            Poseidon31MerkleHasherVar::hash_qm31_columns_get_rate(&[depth_column.value.1.clone()]);
+            Poseidon31MerkleHasherVar::hash_qm31_columns_get_rate(&[last_column.value.1.clone()]);
 
-        println!("self.columns keys: {:?}", self.columns.keys());
+        let mut is_hash_active = max_log_size.is_eq(&M31Var::new_constant(
+            &cs,
+            &M31::from(MAX_SEQUENCE_LOG_SIZE),
+        ));
 
-        // TODO: Remove dependency on self.value.depth - the loop should work for any depth
-        // Currently the loop range is fixed to self.value.depth, but should be dynamic
-        // based on the actual tree structure.
-        for i in 0..self.value.depth {
-            let h = self.value.depth - i - 1;
-            println!("h: {:?}", h);
+        for h in (0..MAX_SEQUENCE_LOG_SIZE + self.value.log_blowup_factor).rev() {
+            let query_bit = query.lsb.get(&h).unwrap();
 
-            self_hash = if let Some(column_opt) = self.columns.get(&h) {
+            self_hash = if let Some(column_opt) = self.columns.get(&(h as usize)) {
                 let (self_col, _, is_column_present) = (
                     &column_opt.value.0,
                     &column_opt.value.1,
@@ -128,15 +176,19 @@ impl PaddedSinglePairMerkleProofVar {
                 let tree_hash = Poseidon31MerkleHasherVar::hash_tree_with_swap(
                     &self_hash,
                     &sibling_hash,
-                    &query.0[i],
+                    query_bit,
                 )
                 .to_qm31();
 
                 // If column is present (is_some = true), combine with column hash
                 // Otherwise, just use the tree hash
-                let case_without_column = tree_hash.clone();
+                let case_without_column = [
+                    &tree_hash[0] * &is_hash_active.0,
+                    &tree_hash[1] * &is_hash_active.0,
+                ];
+
                 let case_with_column = Poseidon2HalfVar::permute_get_rate(
-                    &Poseidon2HalfVar::from_qm31(&tree_hash[0], &tree_hash[1]),
+                    &Poseidon2HalfVar::from_qm31(&case_without_column[0], &case_without_column[1]),
                     &self_column_hash,
                 )
                 .to_qm31();
@@ -156,15 +208,12 @@ impl PaddedSinglePairMerkleProofVar {
                 ];
                 Poseidon2HalfVar::from_qm31(&final_self_hash[0], &final_self_hash[1])
             } else {
-                Poseidon31MerkleHasherVar::hash_tree_with_swap(
-                    &self_hash,
-                    &sibling_hash,
-                    &query.0[i],
-                )
+                is_hash_active.equalverify(&BitVar::new_true(&cs));
+                Poseidon31MerkleHasherVar::hash_tree_with_swap(&self_hash, &sibling_hash, query_bit)
             };
 
-            if i != self.value.depth - 1 {
-                sibling_hash = if let Some(column_opt) = self.columns.get(&h) {
+            if h != 0 {
+                sibling_hash = if let Some(column_opt) = self.columns.get(&(h as usize)) {
                     let (_, sibling_col, is_column_present) = (
                         &column_opt.value.0,
                         &column_opt.value.1,
@@ -176,7 +225,8 @@ impl PaddedSinglePairMerkleProofVar {
                         ]);
 
                     // Handle sibling hash - always combine with column hash if present
-                    let sibling_tree_hash = self.sibling_hashes[i].clone();
+                    let sibling_tree_hash = self.sibling_hashes.get(&(h as usize)).unwrap().clone();
+
                     let sibling_with_column =
                         Poseidon31MerkleHasherVar::combine_hash_tree_with_column(
                             &sibling_tree_hash,
@@ -200,9 +250,15 @@ impl PaddedSinglePairMerkleProofVar {
 
                     Poseidon2HalfVar::from_qm31(&final_sibling_hash[0], &final_sibling_hash[1])
                 } else {
-                    self.sibling_hashes[i].clone()
+                    self.sibling_hashes.get(&(h as usize)).unwrap().clone()
                 };
             }
+
+            is_hash_active = &is_hash_active
+                | &max_log_size.is_eq(&M31Var::new_constant(
+                    &cs,
+                    &M31::from(h as i32 - self.value.log_blowup_factor as i32),
+                ));
         }
 
         assert_eq!(self_hash.value(), root.value());
@@ -217,23 +273,166 @@ pub struct FoldingResults {}
 
 impl FoldingResults {
     pub fn new(
+        fiat_shamir_hints: &CairoFiatShamirHints,
         folding_hints: &CairoFoldingHints,
         fiat_shamir_results: &CairoFiatShamirResults,
+        answer_results: &AnswerResults,
         proof_var: &CairoProofVar,
     ) -> Self {
         let cs = fiat_shamir_results.max_log_size.cs();
+
+        println!("max_log_size: {:?}", fiat_shamir_results.max_log_size.value);
 
         for (i, proof) in folding_hints
             .first_layer_hints
             .merkle_proofs
             .iter()
             .enumerate()
+            .take(1)
         {
-            let mut proof = PaddedSinglePairMerkleProofVar::new_witness(&cs, proof);
+            let padded_query_bits = PaddedQueryBits::compute(
+                &fiat_shamir_results.queries[i],
+                fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor,
+                &fiat_shamir_results.max_log_size,
+            );
+
+            let proof = PaddedSinglePairMerkleProofVar::new_witness(&cs, proof);
             proof.verify(
                 &proof_var.stark_proof.fri_proof.first_layer.commitment,
-                &fiat_shamir_results.queries[i],
+                &padded_query_bits,
+                &fiat_shamir_results.max_log_size,
             );
+
+            for h in LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE {
+                let proof_column = proof
+                    .columns
+                    .get(
+                        &((h + fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor) as usize),
+                    )
+                    .unwrap();
+                let answer_column = answer_results.answers[i].get(&(h as usize)).unwrap();
+
+                let proof_is_some = &proof_column.is_some;
+                let answer_is_some = &answer_column.is_some;
+                proof_is_some.equalverify(answer_is_some);
+
+                let proof_column = &proof_column.value.0;
+                let answer_column = &answer_column.value;
+
+                let expected = QM31Var::select(proof_column, answer_column, proof_is_some);
+                proof_column.equalverify(&expected);
+            }
+
+            let mut is_layer_present =
+                fiat_shamir_results
+                    .max_log_size
+                    .is_eq(&M31Var::new_constant(
+                        &cs,
+                        &M31::from(MAX_SEQUENCE_LOG_SIZE),
+                    ));
+
+            let mut f_primes = IndexMap::new();
+            for h in (LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE).rev() {
+                let is_first_layer = fiat_shamir_results
+                    .max_log_size
+                    .is_eq(&M31Var::new_constant(&cs, &M31::from(h)));
+
+                println!("================================================");
+                println!("h: {:?}", h);
+                println!("is_first_layer: {:?}", is_first_layer.value());
+                println!("is_layer_present: {:?}", is_layer_present.value());
+                println!(
+                    "inner layer alpha present?: {:?}",
+                    fiat_shamir_results.inner_layers_alphas.contains_key(&h)
+                );
+                if fiat_shamir_results.inner_layers_alphas.contains_key(&h)
+                    && fiat_shamir_results
+                        .inner_layers_alphas
+                        .get(&h)
+                        .unwrap()
+                        .is_some
+                        .value()
+                {
+                    println!(
+                        "inner layer alpha: {:?}",
+                        fiat_shamir_results
+                            .inner_layers_alphas
+                            .get(&h)
+                            .unwrap()
+                            .value
+                            .value()
+                    );
+                }
+                if is_first_layer.value() {
+                    println!(
+                        "first layer alpha: {:?}",
+                        fiat_shamir_results.first_layer_alpha.value()
+                    );
+                }
+                println!("================================================");
+
+                let proof_column = proof
+                    .columns
+                    .get(
+                        &((h + fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor) as usize),
+                    )
+                    .unwrap();
+
+                let self_var = &proof_column.value.0;
+                let sibling_var = &proof_column.value.1;
+
+                let bit = padded_query_bits
+                    .lsb
+                    .get(&(h - 1 + fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor))
+                    .unwrap();
+
+                let point = &answer_results
+                    .query_positions_var
+                    .points
+                    .get(&(h + fiat_shamir_hints.pcs_config.fri_config.log_blowup_factor))
+                    .unwrap()[i]
+                    .get_absolute_point()
+                    .double();
+
+                let y_inv = point.y.inv();
+
+                let (left_var, right_var) = QM31Var::swap(self_var, sibling_var, bit);
+                println!(
+                    "left_var = {}, right_var = {}",
+                    left_var.value(),
+                    right_var.value()
+                );
+                let new_left_var = &left_var + &right_var;
+                let new_right_var = &(&left_var - &right_var) * &y_inv;
+
+                let alpha = if fiat_shamir_results.inner_layers_alphas.contains_key(&h) {
+                    let candidate_alpha = fiat_shamir_results.inner_layers_alphas.get(&h).unwrap();
+                    (&is_first_layer | &candidate_alpha.is_some)
+                        .equalverify(&BitVar::new_true(&cs));
+
+                    QM31Var::select(
+                        &candidate_alpha.value,
+                        &fiat_shamir_results.first_layer_alpha,
+                        &is_first_layer,
+                    )
+                } else {
+                    fiat_shamir_results.first_layer_alpha.clone()
+                };
+
+                let f_prime = &new_left_var + &(&new_right_var * &alpha);
+                f_primes.insert(h, OptionVar::new(proof_column.is_some.clone(), f_prime));
+
+                is_layer_present = &is_layer_present | &is_first_layer;
+            }
+
+            for (h, f_prime) in f_primes.iter() {
+                println!(
+                    "h = {}, f_prime is_some = {}, f_prime = {}",
+                    h,
+                    f_prime.is_some.value(),
+                    f_prime.value.value()
+                );
+            }
         }
 
         Self {}
@@ -244,7 +443,9 @@ impl FoldingResults {
 mod tests {
     use super::*;
     use cairo_air::utils::{deserialize_proof_from_file, ProofFormat};
-    use cairo_plonk_dsl_hints::{AnswerHints, CairoFiatShamirHints};
+    use cairo_plonk_dsl_answer::AnswerResults;
+    use cairo_plonk_dsl_decommitment::CairoDecommitmentResultsVar;
+    use cairo_plonk_dsl_hints::{AnswerHints, CairoDecommitmentHints, CairoFiatShamirHints};
     use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
     use std::path::PathBuf;
 
@@ -266,9 +467,28 @@ mod tests {
         let fiat_shamir_hints = CairoFiatShamirHints::new(&proof);
         let proof_var = CairoProofVar::new_witness(&cs, &proof);
         let answer_hints = AnswerHints::new(&fiat_shamir_hints, &proof);
+        let decommitment_hints = CairoDecommitmentHints::new(&fiat_shamir_hints, &proof);
 
         let folding_hints = CairoFoldingHints::new(&fiat_shamir_hints, &answer_hints, &proof);
         let fiat_shamir_results = CairoFiatShamirResults::compute(&fiat_shamir_hints, &proof_var);
-        let _ = FoldingResults::new(&folding_hints, &fiat_shamir_results, &proof_var);
+        let decommitment_results = CairoDecommitmentResultsVar::compute(
+            &fiat_shamir_hints,
+            &decommitment_hints,
+            &fiat_shamir_results,
+            &proof_var,
+        );
+        let answer_results = AnswerResults::compute(
+            &fiat_shamir_hints,
+            &fiat_shamir_results,
+            &decommitment_results,
+            &proof_var,
+        );
+        let _ = FoldingResults::new(
+            &fiat_shamir_hints,
+            &folding_hints,
+            &fiat_shamir_results,
+            &answer_results,
+            &proof_var,
+        );
     }
 }
