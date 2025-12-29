@@ -642,7 +642,6 @@ dependencies = [
  "cairo-plonk-dsl-hints",
  "circle-plonk-dsl-constraint-system",
  "circle-plonk-dsl-primitives",
- "indexmap",
  "num-traits",
  "stwo",
  "stwo-cairo-common",
