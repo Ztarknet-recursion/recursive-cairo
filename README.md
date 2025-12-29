@@ -1,6 +1,6 @@
 # Compressing Stwo-Cairo proof to Stwo-Plonk proof
 
-<img src="doc/logo.png" alt="Cairo to Plonk transformation" style="float: right; margin-left: 20px; max-width: 300px;" />
+<img src="doc/logo.png" alt="Cairo to Plonk transformation" style="float: right;" />
 
 This repository implements a recursive proof generator that converts a Stwo-Cairo proof into a smaller Stwo-Plonk proof, leveraging the fact that Stwo-Plonk proof has much fewer columns than Stwo-Cairo (2235 vs 134) and that the Cairo-to-Plonk verifier circuit is significantly smaller than that of Cairo-to-Cairo, which allows for more aggressive FRI parameters before reaching the Circle Stwo bound. Then, we repeatedly use Plonk-to-Plonk recursive verification with different FRI parameters to reduce the proof size. This is designed to reduce the on-chain footprint of a Stwo-Cairo proof to be verified on Zcash.
 
@@ -13,7 +13,7 @@ This repository implements a recursive proof generator that converts a Stwo-Cair
 
 | Proof File | Size | Description |
 |------------|------|-------------|
-| [`recursive_proof.bin.bz`](cairo-components/test_data/recursive_proof.bin.bz) | 1.19 MiB | From [zebra-fork](https://github.com/Ztarknet-recursion/zebra-fork/) and uses Stwo-Cairo to verify a proof from Zebra<br>Config: pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, n_queries = 70 |
+| [`recursive_proof.bin.bz`](cairo-components/test_data/recursive_proof.bin.bz) | 1.19 MiB | From [zebra-fork](https://github.com/Ztarknet-recursion/zebra-fork/) and uses Stwo-Cairo to verify a proof from [SNOS][snos]<br>Config: pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, n_queries = 70 |
 | [`initial_proof.bin`](examples/data/initial_proof.bin) | 612 KiB | Verifies `recursive_proof.bin.bz` using Cairo-to-Plonk verifier<br>Config: pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, n_queries = 70 |
 | [`level1_20_8_1.bin`](examples/data/level1_20_8_1.bin) | 399 KiB | Verifies `initial_proof.bin` using Plonk-to-Plonk verifier<br>Config: pow_bits = 20, log_last_layer_degree_bound = 8, log_blowup_factor = 1, n_queries = 80 |
 | [`level2_20_8_3.bin`](examples/data/level2_20_8_3.bin) | 191 KiB | Verifies `level1_20_8_1.bin` using Plonk-to-Plonk verifier<br>Config: pow_bits = 20, log_last_layer_degree_bound = 8, log_blowup_factor = 3, n_queries = 27 |
@@ -38,11 +38,11 @@ fn main(proof: CairoProof) -> VerificationOutput {
 
 This would result in the Cairo proof to have certain shapes and parameters below that we take as assumptions.
 
-- The bootloader emits 5 output, each of [u32; 8]. 
+- The bootloader emits 5 outputs, each of [u32; 8]. 
    * The 1st output is 1, representing that 1 task has been [executed](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/simple_bootloader/simple_bootloader.cairo#L80)
    * The 2nd output is 4, representing that this task has [4 - 2 = 2 outputs](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/simple_bootloader/execute_task.cairo#L299).
    * The 3rd output is the program hash of the Blake2s hash of the [Cairo-to-Cairo recursive verifier][cairo-recursive-verifier]'s binary code. This hash is computed and appended to the output by the simple bootloader.
-   * The 4th output is the program hash of the Blake2s hash of [a Starknet OS (SNOS) Cairo program](https://github.com/keep-starknet-strange/snos). This hash is computed and appended to the output by the Cairo-to-Cairo recursive verifier.
+   * The 4th output is the program hash of the Blake2s hash of [a Starknet OS (SNOS) Cairo program][snos]. This hash is computed and appended to the output by the Cairo-to-Cairo recursive verifier.
    * The 5th output is the hash of the outputs of the SNOS Cairo program.
 - The entire Cairo program uses the Stwo-Cairo AIR in the following way. The Cairo-to-Cairo recursive verifier should have the same AIR usage for all Cairo proofs being verified.
    * It uses `add`, `add_small`, `add_ap`, `assert_eq`, `assert_eq_imm`, `assert_eq_double_deref`, `blake`, `call`, `call_rel_imm`, `jnz`, `jnz_taken`, `jump_rel`, `jump_rel_imm`, `mul`, `mul_small`, `qm31`, `ret` opcode components, but it does not use `generic`, `jump`, `jump_double_deref`.
@@ -98,4 +98,17 @@ Folding will fold the FRI polynomial until it becomes a constant. The number of 
 
 The folded result is then checked against the last layer constant, which should be the same across all the queries. 
 
+## Plonk-to-Plonk compression
+
+After the initial Cairo-to-Plonk step, the Plonk proof is made smaller by recursively verifying it but under more aggressive FRI parameters that reduce the proof size. An invariant of the recursion is that the public input to any of the Plonk proof is (1, i, j, A, B) where A and B are both QM31 elements and they together form the Poseidon2 hash for the 5 outputs from the bootloader, each of [u32; 8]. 
+
+To verify the final Plonk proof, one needs to get the final preprocessed column hash (which depends on and *is sensitive to* the chain of Plonk-to-Plonk compression) and generates the input as above with the expected outputs from the [SNOS][snos] proof. 
+
+## Additional documentations
+
+These documentations are generated with the help of Cursor AI to discuss some new designs in this repository.
+
+**TODO**
+
 [cairo-recursive-verifier]: https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/recursion/src/lib.cairo
+[snos]: https://github.com/keep-starknet-strange/snos

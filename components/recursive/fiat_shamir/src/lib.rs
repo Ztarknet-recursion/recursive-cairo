@@ -1,11 +1,12 @@
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_data_structures::{LookupElementsVar, PlonkWithPoseidonProofVar};
 use circle_plonk_dsl_hints::FiatShamirHints;
-use circle_plonk_dsl_primitives::{BitsVar, ChannelVar, CirclePointQM31Var, HashVar};
+use circle_plonk_dsl_primitives::{BitsVar, ChannelVar, CirclePointQM31Var, HashVar, Poseidon2HalfVar};
 use circle_plonk_dsl_primitives::{M31Var, QM31Var};
 use stwo::core::fields::qm31::QM31;
 use stwo::core::fields::FieldExpOps;
 use stwo::core::pcs::PcsConfig;
+use stwo::core::vcs::poseidon31_hash::Poseidon31Hash;
 use stwo::core::vcs::poseidon31_merkle::Poseidon31MerkleChannel;
 
 pub struct FiatShamirResults {
@@ -38,6 +39,10 @@ impl FiatShamirResults {
         let trace_commitment = proof.stark_proof.commitments[1].clone();
         let interaction_trace_commitment = proof.stark_proof.commitments[2].clone();
         let composition_commitment = proof.stark_proof.commitments[3].clone();
+
+        // fix the preprocessed commitment
+        let preprocessed_commitment_constant = Poseidon2HalfVar::new_constant(&cs, &Poseidon31Hash(preprocessed_commitment.value));
+        preprocessed_commitment_constant.equalverify(&preprocessed_commitment);
 
         let mut channel = ChannelVar::default(&cs);
 
