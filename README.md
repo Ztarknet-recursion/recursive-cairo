@@ -4,6 +4,8 @@
 
 This repository implements a recursive proof generator that converts a Stwo-Cairo proof into a smaller Stwo-Plonk proof, leveraging the fact that Stwo-Plonk proof has much fewer columns than Stwo-Cairo (2235 vs 134) and that the Cairo-to-Plonk verifier circuit is significantly smaller than that of Cairo-to-Cairo, which allows for more aggressive FRI parameters before reaching the Circle Stwo bound. Then, we repeatedly use Plonk-to-Plonk recursive verification with different FRI parameters to reduce the proof size. This is designed to reduce the on-chain footprint of a Stwo-Cairo proof to be verified on Zcash.
 
+Special thanks to [Abdel Bakhta](https://x.com/AbdelStark) for scoping out the idea and engineering plan, and special thanks to [Michael Zaikin](https://x.com/monsieur_kus) for answering a number of questions related to Starknet and providing many ideas on proof compression.
+
 **Contents**
 - [Proof Sizes](#proof-sizes)
 - [Assumptions](#assumptions)
@@ -25,25 +27,9 @@ This repository implements a recursive proof generator that converts a Stwo-Cair
 
 The Cairo-to-Plonk verifier circuit expects that the Cairo program in the Cairo proof is [a Cairo-to-Cairo recursive verifier][cairo-recursive-verifier] executed by [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. 
 
-```rust
-use stwo_cairo_air::{CairoProof, VerificationOutput, get_verification_output, verify_cairo};
-
-#[executable]
-fn main(proof: CairoProof) -> VerificationOutput {
-    let output = get_verification_output(proof: @proof);
-    verify_cairo(proof);
-    output
-}
-```
-
 This would result in the Cairo proof to have certain shapes and parameters below that we take as assumptions.
 
 - The bootloader emits 5 outputs, each of [u32; 8]. 
-   * The 1st output is 1, representing that 1 task has been [executed](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/simple_bootloader/simple_bootloader.cairo#L80)
-   * The 2nd output is 4, representing that this task has [4 - 2 = 2 outputs](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/simple_bootloader/execute_task.cairo#L299).
-   * The 3rd output is the program hash of the Blake2s hash of the [Cairo-to-Cairo recursive verifier][cairo-recursive-verifier]'s binary code. This hash is computed and appended to the output by the simple bootloader.
-   * The 4th output is the program hash of the Blake2s hash of [a Starknet OS (SNOS) Cairo program][snos]. This hash is computed and appended to the output by the Cairo-to-Cairo recursive verifier.
-   * The 5th output is the hash of the outputs of the SNOS Cairo program.
 - The entire Cairo program uses the Stwo-Cairo AIR in the following way. The Cairo-to-Cairo recursive verifier should have the same AIR usage for all Cairo proofs being verified.
    * It uses `add`, `add_small`, `add_ap`, `assert_eq`, `assert_eq_imm`, `assert_eq_double_deref`, `blake`, `call`, `call_rel_imm`, `jnz`, `jnz_taken`, `jump_rel`, `jump_rel_imm`, `mul`, `mul_small`, `qm31`, `ret` opcode components, but it does not use `generic`, `jump`, `jump_double_deref`.
    * It uses the `range_check_128` builtin only, and does not use `add_mod`, `bitwise`, `mul_mod`, `pedersen`, `poseidon`, `range_check_96` builtins.
@@ -106,9 +92,9 @@ To verify the final Plonk proof, one needs to get the final preprocessed column 
 
 ## Additional documentations
 
-These documentations are generated with the help of Cursor AI to discuss some new designs in this repository.
+These documentations discuss some new designs in this repository.
 
-**TODO**
+- [Description of the example proof being verified](doc/example_proof.md)
 
 [cairo-recursive-verifier]: https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/recursion/src/lib.cairo
 [snos]: https://github.com/keep-starknet-strange/snos
