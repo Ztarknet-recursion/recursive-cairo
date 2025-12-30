@@ -87,7 +87,7 @@ See [this doc](doc/answer.md) for more detail.
 
 ### Folding
 
-Folding will fold the FRI polynomial until it becomes a constant. The number of foldings needed, as well as the height of the trees for each folding, depends on the log sizes of the components. The code uses two designs to make the folding logic independent on the log sizes.
+Folding will fold the FRI polynomial until it becomes a constant. The number of foldings needed, as well as the height of the trees for each folding, depends on the log sizes of the components. The code uses two designs to make the folding logic independent on the log sizes. See [this doc](doc/folding.md) for more detail.
 
 - for the first layer, the tree assumes the maximum height `MAX_SEQUENCE_LOG_SIZE + log_blowup_factor` and can skip layers based on the computed log size. 
 - for the inner layers, we pad to the maximum number of inner layers from `MAX_SEQUENCE_LOG_SIZE - 1 + log_blowup_factor` to `log_blowup_factor` and can obliviously skip inner layers that are due to padding. 
@@ -102,7 +102,7 @@ To verify the final Plonk proof, one needs to get the final preprocessed column 
 
 ## Additional documentations
 
-These documentations discuss some new designs in this repository.
+These documentations discuss some new designs in this repository. The notes have been prepared with the help of [Cursor](https://cursor.com/).
 
 - [Description of the example proof being verified](doc/example_proof.md)
 - [List of components in Cairo](doc/components.md)
@@ -114,6 +114,7 @@ These documentations discuss some new designs in this repository.
 - [Description of seq franking](doc/seq_franking.md)
 - [Description of the oblivious column hasher used in decommitment](doc/column_hasher.md)
 - [Description of the oblivious calculation of FRI answers](doc/answer.md)
+- [Description of the folding protocol](doc/folding.md)
 
 [cairo-recursive-verifier]: https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/recursion/src/lib.cairo
 [snos]: https://github.com/keep-starknet-strange/snos
