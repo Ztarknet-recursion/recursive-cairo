@@ -34,7 +34,7 @@ Note that generating the proofs again will result in slight variations of the pr
 
 ## Assumptions
 
-The Cairo-to-Plonk verifier circuit expects that the Cairo program in the Cairo proof is [a Cairo-to-Cairo recursive verifier][cairo-recursive-verifier] executed by [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. See [this doc](doc/example_proof.md) for more detail.
+The Cairo-to-Plonk verifier circuit expects that the Cairo program in the Cairo proof is [a Cairo-to-Cairo recursive verifier][cairo-recursive-verifier] executed by [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. It uses `canonical_without_pedersen` as the preprocessed trace. See [this doc](doc/example_proof.md) for more detail.
 
 This would result in the Cairo proof to have certain shapes and parameters below that we take as assumptions.
 
@@ -60,19 +60,19 @@ Compared with a standard Stwo's Fiat-Shamir transform, the one for Cairo has som
 
 To ensure that Fiat-Shamir does not depend on the log sizes of each component, there are a few techniques being used:
 
-- When absorbing the sampled values (around the OODS point), it needs to skip the values for unused "Seq" preprocessed trace columns, which depends on the log sizes of components that use "Seq". To handle this, we use a primitive called [ConditionalChannelMixer](primitives/src/channel.rs) so that the circuit is oblivious to whether a "Seq" preprocessed trace column will be present. See [this doc](doc/conditional_channel_mixer.md) for more detail.
+- When absorbing the sampled values (around the OODS point), it needs to skip the values for unused "Seq" preprocessed trace columns, which depends on the log sizes of components that use "Seq". To handle this, we use a primitive called [ConditionalChannelMixer](primitives/src/channel.rs) so that the circuit is oblivious to whether a "Seq" preprocessed trace column will be present. See [this doc](doc/conditional_channel_mixer.md) for more detail. And see [this doc](doc/preprocessed_trace.md) for a list of all preprocessed trace columns.
 - The number of inner layers in FRI depends on the degree of the FRI polynomial, which has to do with the max log sizes of all the components. To handle this, the Fiat-Shamir assumes `MAX_SEQUENCE_LOG_SIZE - 1` inner layers where some of them are dummy and can be ignored obliviously using the computed actual log size of the FRI polynomial, based on the max log sizes of all components.
 
 ### Composition
 
 We adapt the Cairo AIR [here](cairo-components/recursive/composition/components) to handle the issue that some Cairo components use "Seq" preprocessed column in a way that depends on their respective log size, and some Cairo components use log sizes within its own evaluation (`range_check_builtin_bits_128` and `memory_address_to_id`). In addition, since a component can have different log sizes, it impacts the way to compute the denominator inverses in the composition polynomial. 
 
-- a primitive called [ObliviousMapVar](primitives/src/oblivious_map.rs) is to used to find the point shift constants that vary by log sizes during the computation of the denominator inverses (coset vanishing) for constructing the composition polynomial.
+- a primitive called [ObliviousMapVar](primitives/src/oblivious_map.rs) is to used to find the shifted point's coset vanishing result that varies by log sizes for constructing the composition polynomial. See [this doc](doc/oblivious_map.md) for more detail.
 - a primitive called [PointEvaluatorVar](cairo-components/recursive/composition/src/data_structures.rs) that mimics the `PointEvaluator` in Stwo which additionally supports "seq franking", so that we can replace the direct invocation of the "Seq" preprocessed trace column with an oblivious one. This is used for a number of components whose usage of the "Seq" preprocessed trace column depends on their own log sizes (which is the expected behavior).
 
 ### Decommitment
 
-We design decommitment to be oblivious to the log sizes of each component with two designs:
+We make decommitment oblivious to the log sizes of each component with two designs:
 
 - Merkle tree verification is oblivious to the Merkle tree sizes. This is useful because trace, interaction, and composition trees' heights depend on the log sizes of the components. The Merkle tree verification assumes the maximum size `MAX_SEQUENCE_LOG_SIZE + log_blowup_factor` but can skip bottom layers conditionally according to the computed tree height.
 - Some Merkle tree nodes carry column values at that height, but the heights here depend on the log sizes of the components, and even the number of columns residing at a specific height is not a constant. Several primitives are built [here](cairo-components/recursive/decommitment/src/utils.rs) to apply the column values obliviously, by creating a number of hash accumulators that can be obliviously selected and can correctly batch M31 elements in order in calculating the hash even if those M31 elements come from different components. 
@@ -107,7 +107,9 @@ These documentations discuss some new designs in this repository.
 - [List of components in Cairo](doc/components.md)
 - [Cairo proof formality checks](doc/formality_check.md)
 - [Public input in a Cairo proof](doc/public_input.md)
+- [List of preprocessed trace columns](doc/preprocessed_trace.md)
 - [Description of ConditionalChannelMixer](doc/conditional_channel_mixer.md)
+- [LogSizeVar and ObliviousMapVar](doc/oblivious_map.md)
 
 [cairo-recursive-verifier]: https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/recursion/src/lib.cairo
 [snos]: https://github.com/keep-starknet-strange/snos

@@ -26,7 +26,7 @@ fn main(proof: CairoProof) -> VerificationOutput {
 }
 ```
 
-Because we use the `blake_outputs_packing` feature, the 54 outputs from the SNOS proof will be hashed to a single Blake2s hash. This Cairo program uses [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. 
+Because we use the `blake_outputs_packing` feature, the 54 outputs from the SNOS proof will be hashed to a single Blake2s hash. This Cairo program uses [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. It uses `canonical_without_pedersen` as the preprocessed trace.
 
 It has five outputs (each of [u32; 8]) as follows:
    * The 1st output is 1, representing that 1 task has been [executed](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/simple_bootloader/simple_bootloader.cairo#L80)
