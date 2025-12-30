@@ -20,7 +20,8 @@ use circle_plonk_dsl_primitives::{
 use indexmap::IndexMap;
 use itertools::Itertools;
 use stwo::core::{
-    fields::{m31::M31, qm31::SECURE_EXTENSION_DEGREE}, poly::circle::CanonicCoset
+    fields::{m31::M31, qm31::SECURE_EXTENSION_DEGREE},
+    poly::circle::CanonicCoset,
 };
 use stwo_cairo_common::preprocessed_columns::preprocessed_trace::MAX_SEQUENCE_LOG_SIZE;
 use stwo_cairo_common::prover_types::simd::LOG_N_LANES;
@@ -46,7 +47,7 @@ impl CosetVanishingMapVar {
         for i in LOG_N_LANES..=MAX_SEQUENCE_LOG_SIZE {
             let coset = CanonicCoset::new(i).coset;
             let shift_point = -coset.initial + coset.step_size.half().to_point();
-        
+
             let mut x = (p + &shift_point).x;
             for _ in 1..i {
                 let sq = &x * &x;
@@ -55,7 +56,9 @@ impl CosetVanishingMapVar {
             map.insert(i, x.inv());
         }
 
-        Self { map: ObliviousMapVar::new(map) }
+        Self {
+            map: ObliviousMapVar::new(map),
+        }
     }
 
     pub fn select(&self, coset_log_size: &LogSizeVar) -> QM31Var {
@@ -1375,7 +1378,7 @@ mod test {
     use stwo::core::{
         circle::{CirclePoint, SECURE_FIELD_CIRCLE_ORDER},
         constraints::coset_vanishing,
-        fields::{FieldExpOps, qm31::SecureField},
+        fields::{qm31::SecureField, FieldExpOps},
     };
 
     use super::*;
