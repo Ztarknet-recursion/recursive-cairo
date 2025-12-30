@@ -10,8 +10,15 @@ Special thanks to [Abdel Bakhta](https://x.com/AbdelStark) for scoping out the i
 - [Proof Sizes](#proof-sizes)
 - [Assumptions](#assumptions)
 - [Constructions](#constructions)
+  - [Fiat-Shamir](#fiat-shamir)
+  - [Composition](#composition)
+  - [Decommitment](#decommitment)
+  - [Answer](#answer)
+  - [Folding](#folding)
+- [Plonk-to-Plonk compression](#plonk-to-plonk-compression)
+- [Additional documentations](#additional-documentations)
 
-## Proof Sizes {#proof-sizes}
+## Proof Sizes
 
 | Proof File | Size | Description |
 |------------|------|-------------|
@@ -23,7 +30,7 @@ Special thanks to [Abdel Bakhta](https://x.com/AbdelStark) for scoping out the i
 | [`level4_20_8_8.bin`](examples/data/level4_20_8_8.bin) | 86 KiB | Verifies `level3_23_8_7.bin` using Plonk-to-Plonk verifier<br>Config: pow_bits = 20, log_last_layer_degree_bound = 8, log_blowup_factor = 8, n_queries = 10 |
 | [`level5_28_7_9.bin`](examples/data/level5_28_7_9.bin) | 77 KiB | Verifies `level4_20_8_8.bin` using Plonk-to-Plonk verifier<br>Config: pow_bits = 28, log_last_layer_degree_bound = 7, log_blowup_factor = 9, n_queries = 8 |
 
-## Assumptions {#assumptions}
+## Assumptions
 
 The Cairo-to-Plonk verifier circuit expects that the Cairo program in the Cairo proof is [a Cairo-to-Cairo recursive verifier][cairo-recursive-verifier] executed by [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. 
 
