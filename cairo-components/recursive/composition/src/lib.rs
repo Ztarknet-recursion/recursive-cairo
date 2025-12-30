@@ -13,9 +13,10 @@ use cairo_plonk_dsl_fiat_shamir::CairoFiatShamirResults;
 use cairo_plonk_dsl_hints::CairoFiatShamirHints;
 use circle_plonk_dsl_constraint_system::var::{AllocVar, Var};
 use circle_plonk_dsl_primitives::{
+    channel::PreProcessedTracePresent,
     fields::WrappedQM31Var,
     oblivious_map::{ObliviousMapVar, SelectVar},
-    BitVar, CirclePointQM31Var, LogSizeVar, M31Var, QM31Var,
+    CirclePointQM31Var, LogSizeVar, M31Var, QM31Var,
 };
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -1341,7 +1342,7 @@ pub fn update_evaluation_accumulator_var<C: FrameworkEval, R: ComponentVar>(
     log_size: &LogSizeVar,
     claimed_sum: &QM31Var,
     seq_franking: bool,
-    is_preprocessed_trace_present: &[BitVar],
+    is_preprocessed_trace_present: &[PreProcessedTracePresent],
 ) {
     let preprocessed_mask = (*component)
         .preprocessed_column_indices()

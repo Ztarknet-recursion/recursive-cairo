@@ -7,6 +7,7 @@ use cairo_air::PreProcessedTraceVariant;
 use cairo_plonk_dsl_data_structures::evaluator::PointEvaluationAccumulatorVar;
 use circle_plonk_dsl_constraint_system::var::Var;
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
+use circle_plonk_dsl_primitives::channel::PreProcessedTracePresent;
 use circle_plonk_dsl_primitives::fields::WrappedQM31Var;
 use circle_plonk_dsl_primitives::oblivious_map::SelectVar;
 use circle_plonk_dsl_primitives::{BitVar, LogSizeVar, QM31Var};
@@ -73,7 +74,7 @@ pub struct PointEvaluatorVar<'a> {
     pub col_index: Vec<usize>,
     pub seq_franking: bool,
     pub preprocessed_mask: &'a ColumnVec<Vec<WrappedQM31Var>>,
-    pub is_preprocessed_trace_present: &'a [BitVar],
+    pub is_preprocessed_trace_present: &'a [PreProcessedTracePresent],
 }
 
 impl<'a> PointEvaluatorVar<'a> {
@@ -85,7 +86,7 @@ impl<'a> PointEvaluatorVar<'a> {
         total_sum: &QM31Var,
         seq_franking: bool,
         preprocessed_mask: &'a ColumnVec<Vec<WrappedQM31Var>>,
-        is_preprocessed_trace_present: &'a [BitVar],
+        is_preprocessed_trace_present: &'a [PreProcessedTracePresent],
     ) -> Self {
         let col_index = vec![0; mask.len()];
         let logup = LogupAtRowVar::new(INTERACTION_TRACE_IDX, total_sum, log_size);
@@ -127,9 +128,12 @@ impl EvalAtRow for PointEvaluatorVar<'_> {
 
                     // if bit is true, we require that its preprocessed trace is present
                     // => bit * is_preprocessed_trace_present + !bit = one
-                    let is_preprocessed_trace_present = &self.is_preprocessed_trace_present[*loc];
-                    let constraint = &(bit & is_preprocessed_trace_present) | &bit.neg();
-                    constraint.equalverify(&BitVar::new_true(&self.cs()));
+                    if let PreProcessedTracePresent::Dynamic(is_preprocessed_trace_present) =
+                        &self.is_preprocessed_trace_present[*loc]
+                    {
+                        let constraint = &(bit & is_preprocessed_trace_present) | &bit.neg();
+                        constraint.equalverify(&BitVar::new_true(&self.cs()));
+                    }
 
                     QM31Var::select_add(
                         &mut session,

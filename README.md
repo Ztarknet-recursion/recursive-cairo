@@ -68,7 +68,7 @@ To ensure that Fiat-Shamir does not depend on the log sizes of each component, t
 We adapt the Cairo AIR [here](cairo-components/recursive/composition/components) to handle the issue that some Cairo components use "Seq" preprocessed column in a way that depends on their respective log size, and some Cairo components use log sizes within its own evaluation (`range_check_builtin_bits_128` and `memory_address_to_id`). In addition, since a component can have different log sizes, it impacts the way to compute the denominator inverses in the composition polynomial. 
 
 - a primitive called [ObliviousMapVar](primitives/src/oblivious_map.rs) is to used to find the shifted point's coset vanishing result that varies by log sizes for constructing the composition polynomial. See [this doc](doc/oblivious_map.md) for more detail.
-- a primitive called [PointEvaluatorVar](cairo-components/recursive/composition/src/data_structures.rs) that mimics the `PointEvaluator` in Stwo which additionally supports "seq franking", so that we can replace the direct invocation of the "Seq" preprocessed trace column with an oblivious one. This is used for a number of components whose usage of the "Seq" preprocessed trace column depends on their own log sizes (which is the expected behavior).
+- a primitive called [PointEvaluatorVar](cairo-components/recursive/composition/src/data_structures.rs) that mimics the `PointEvaluator` in Stwo which additionally supports "seq franking", so that we can replace the direct invocation of the "Seq" preprocessed trace column with an oblivious one. This is used for a number of components whose usage of the "Seq" preprocessed trace column depends on their own log sizes (which is the expected behavior). See [this doc](doc/seq_franking.md) for more detail.
 
 ### Decommitment
 
@@ -110,6 +110,7 @@ These documentations discuss some new designs in this repository.
 - [List of preprocessed trace columns](doc/preprocessed_trace.md)
 - [Description of ConditionalChannelMixer](doc/conditional_channel_mixer.md)
 - [LogSizeVar and ObliviousMapVar](doc/oblivious_map.md)
+- [Description of seq franking](doc/seq_franking.md)
 
 [cairo-recursive-verifier]: https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/recursion/src/lib.cairo
 [snos]: https://github.com/keep-starknet-strange/snos

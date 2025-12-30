@@ -59,6 +59,12 @@ impl ChannelVar {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum PreProcessedTracePresent {
+    Fixed(bool),
+    Dynamic(BitVar),
+}
+
 pub struct ConditionalChannelMixer {
     pub channel: ChannelVar,
 }
@@ -68,7 +74,7 @@ impl ConditionalChannelMixer {
         Self { channel }
     }
 
-    pub fn mix(mut self, felt: &[QM31Var], bits: &[BitVar]) -> ChannelVar {
+    pub fn mix(mut self, felt: &[QM31Var], bits: &[PreProcessedTracePresent]) -> ChannelVar {
         let cs = self.channel.cs();
         let mut count = 0;
 
@@ -81,11 +87,33 @@ impl ConditionalChannelMixer {
         let mut is_input_3_occupied = BitVar::new_false(&cs);
 
         for (felt, bit) in felt.iter().zip(bits.iter()) {
-            let should_write_to_input_1 = &is_input_1_occupied.neg() & bit;
-            let should_write_to_input_2 =
-                &(&is_input_1_occupied & &is_input_2_occupied.neg()) & bit;
-            let should_write_to_input_3 = &is_input_2_occupied & bit;
+            if let PreProcessedTracePresent::Fixed(is_present) = bit {
+                if !*is_present {
+                    continue;
+                }
+            }
 
+            let (should_write_to_input_1, should_write_to_input_2, should_write_to_input_3) =
+                if let PreProcessedTracePresent::Dynamic(bit) = bit {
+                    let should_write_to_input_1 = &is_input_1_occupied.neg() & bit;
+                    let should_write_to_input_2 =
+                        &(&is_input_1_occupied & &is_input_2_occupied.neg()) & bit;
+                    let should_write_to_input_3 = &is_input_2_occupied & bit;
+                    (
+                        should_write_to_input_1,
+                        should_write_to_input_2,
+                        should_write_to_input_3,
+                    )
+                } else {
+                    let should_write_to_input_1 = is_input_1_occupied.neg();
+                    let should_write_to_input_2 = &is_input_1_occupied & &is_input_2_occupied.neg();
+                    let should_write_to_input_3 = is_input_2_occupied.clone();
+                    (
+                        should_write_to_input_1,
+                        should_write_to_input_2,
+                        should_write_to_input_3,
+                    )
+                };
             input_1 = QM31Var::select(&input_1, felt, &should_write_to_input_1);
             input_2 = QM31Var::select(&input_2, felt, &should_write_to_input_2);
             input_3 = QM31Var::select(&input_3, felt, &should_write_to_input_3);

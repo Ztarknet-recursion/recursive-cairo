@@ -1,7 +1,8 @@
 use cairo_plonk_dsl_decommitment::CairoDecommitmentResultsVar;
 use circle_plonk_dsl_constraint_system::ConstraintSystemRef;
 use circle_plonk_dsl_primitives::{
-    option::OptionVar, BitVar, CM31Var, CirclePointM31Var, CirclePointQM31Var, M31Var, QM31Var,
+    channel::PreProcessedTracePresent, option::OptionVar, BitVar, CM31Var, CirclePointM31Var,
+    CirclePointQM31Var, M31Var, QM31Var,
 };
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -93,40 +94,32 @@ impl PreprocessedTraceSampleResultVar {
     pub fn new(
         cs: &ConstraintSystemRef,
         sampled_values: &Vec<Vec<QM31Var>>,
-        is_preprocessed_trace_present: &Vec<BitVar>,
+        is_preprocessed_trace_present: &Vec<PreProcessedTracePresent>,
     ) -> Self {
         let sampled_values = sampled_values.iter().map(|v| &v[0]).collect_vec();
 
+        let get_is_present = |index: usize| {
+            if let PreProcessedTracePresent::Dynamic(is_present) =
+                &is_preprocessed_trace_present[index]
+            {
+                is_present.clone()
+            } else {
+                unimplemented!()
+            }
+        };
+
         Self {
             cs: cs.clone(),
-            seq_25: OptionVar::new(
-                is_preprocessed_trace_present[0].clone(),
-                sampled_values[0].clone(),
-            ),
-            seq_24: OptionVar::new(
-                is_preprocessed_trace_present[1].clone(),
-                sampled_values[1].clone(),
-            ),
-            seq_23: OptionVar::new(
-                is_preprocessed_trace_present[2].clone(),
-                sampled_values[2].clone(),
-            ),
-            seq_22: OptionVar::new(
-                is_preprocessed_trace_present[3].clone(),
-                sampled_values[3].clone(),
-            ),
-            seq_21: OptionVar::new(
-                is_preprocessed_trace_present[4].clone(),
-                sampled_values[4].clone(),
-            ),
+            seq_25: OptionVar::new(get_is_present(0), sampled_values[0].clone()),
+            seq_24: OptionVar::new(get_is_present(1), sampled_values[1].clone()),
+            seq_23: OptionVar::new(get_is_present(2), sampled_values[2].clone()),
+            seq_22: OptionVar::new(get_is_present(3), sampled_values[3].clone()),
+            seq_21: OptionVar::new(get_is_present(4), sampled_values[4].clone()),
             seq_20: sampled_values[5].clone(),
             bitwise_xor_10_0: sampled_values[6].clone(),
             bitwise_xor_10_1: sampled_values[7].clone(),
             bitwise_xor_10_2: sampled_values[8].clone(),
-            seq_19: OptionVar::new(
-                is_preprocessed_trace_present[9].clone(),
-                sampled_values[9].clone(),
-            ),
+            seq_19: OptionVar::new(get_is_present(9), sampled_values[9].clone()),
             seq_18: sampled_values[10].clone(),
             bitwise_xor_9_0: sampled_values[11].clone(),
             bitwise_xor_9_1: sampled_values[12].clone(),
@@ -137,14 +130,8 @@ impl PreprocessedTraceSampleResultVar {
             range_check_3_6_6_3_column_1: sampled_values[17].clone(),
             range_check_3_6_6_3_column_2: sampled_values[18].clone(),
             range_check_3_6_6_3_column_3: sampled_values[19].clone(),
-            seq_17: OptionVar::new(
-                is_preprocessed_trace_present[20].clone(),
-                sampled_values[20].clone(),
-            ),
-            seq_16: OptionVar::new(
-                is_preprocessed_trace_present[21].clone(),
-                sampled_values[21].clone(),
-            ),
+            seq_17: OptionVar::new(get_is_present(20), sampled_values[20].clone()),
+            seq_16: OptionVar::new(get_is_present(21), sampled_values[21].clone()),
             bitwise_xor_8_0: sampled_values[22].clone(),
             bitwise_xor_8_1: sampled_values[23].clone(),
             bitwise_xor_8_2: sampled_values[24].clone(),
@@ -152,39 +139,24 @@ impl PreprocessedTraceSampleResultVar {
             range_check_4_4_4_4_column_1: sampled_values[26].clone(),
             range_check_4_4_4_4_column_2: sampled_values[27].clone(),
             range_check_4_4_4_4_column_3: sampled_values[28].clone(),
-            seq_15: OptionVar::new(
-                is_preprocessed_trace_present[29].clone(),
-                sampled_values[29].clone(),
-            ),
+            seq_15: OptionVar::new(get_is_present(29), sampled_values[29].clone()),
             range_check_3_3_3_3_3_column_0: sampled_values[30].clone(),
             range_check_3_3_3_3_3_column_1: sampled_values[31].clone(),
             range_check_3_3_3_3_3_column_2: sampled_values[32].clone(),
             range_check_3_3_3_3_3_column_3: sampled_values[33].clone(),
             range_check_3_3_3_3_3_column_4: sampled_values[34].clone(),
-            seq_14: OptionVar::new(
-                is_preprocessed_trace_present[35].clone(),
-                sampled_values[35].clone(),
-            ),
+            seq_14: OptionVar::new(get_is_present(35), sampled_values[35].clone()),
             bitwise_xor_7_0: sampled_values[36].clone(),
             bitwise_xor_7_1: sampled_values[37].clone(),
             bitwise_xor_7_2: sampled_values[38].clone(),
             range_check_7_2_5_column_0: sampled_values[39].clone(),
             range_check_7_2_5_column_1: sampled_values[40].clone(),
             range_check_7_2_5_column_2: sampled_values[41].clone(),
-            seq_13: OptionVar::new(
-                is_preprocessed_trace_present[42].clone(),
-                sampled_values[42].clone(),
-            ),
+            seq_13: OptionVar::new(get_is_present(42), sampled_values[42].clone()),
             seq_12: sampled_values[43].clone(),
             seq_11: sampled_values[44].clone(),
-            seq_10: OptionVar::new(
-                is_preprocessed_trace_present[45].clone(),
-                sampled_values[45].clone(),
-            ),
-            seq_9: OptionVar::new(
-                is_preprocessed_trace_present[46].clone(),
-                sampled_values[46].clone(),
-            ),
+            seq_10: OptionVar::new(get_is_present(45), sampled_values[45].clone()),
+            seq_9: OptionVar::new(get_is_present(46), sampled_values[46].clone()),
             range_check_5_4_column_0: sampled_values[47].clone(),
             range_check_5_4_column_1: sampled_values[48].clone(),
             seq_8: sampled_values[49].clone(),
@@ -193,17 +165,11 @@ impl PreprocessedTraceSampleResultVar {
             bitwise_xor_4_2: sampled_values[52].clone(),
             range_check_4_4_column_0: sampled_values[53].clone(),
             range_check_4_4_column_1: sampled_values[54].clone(),
-            seq_7: OptionVar::new(
-                is_preprocessed_trace_present[55].clone(),
-                sampled_values[55].clone(),
-            ),
+            seq_7: OptionVar::new(get_is_present(55), sampled_values[55].clone()),
             range_check_4_3_column_0: sampled_values[56].clone(),
             range_check_4_3_column_1: sampled_values[57].clone(),
             seq_6: sampled_values[58].clone(),
-            seq_5: OptionVar::new(
-                is_preprocessed_trace_present[89].clone(),
-                sampled_values[89].clone(),
-            ),
+            seq_5: OptionVar::new(get_is_present(89), sampled_values[89].clone()),
             seq_4: sampled_values[90].clone(),
             blake_sigma_0: sampled_values[91].clone(),
             blake_sigma_1: sampled_values[92].clone(),

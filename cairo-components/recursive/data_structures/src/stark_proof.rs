@@ -3,9 +3,10 @@ use circle_plonk_dsl_constraint_system::{
     var::{AllocVar, AllocationMode, Var},
     ConstraintSystemRef,
 };
-use circle_plonk_dsl_primitives::{BitVar, HashVar};
+use circle_plonk_dsl_primitives::{channel::PreProcessedTracePresent, BitVar, HashVar};
 use circle_plonk_dsl_primitives::{M31Var, QM31Var};
 use indexmap::IndexMap;
+use itertools::Itertools;
 use num_traits::Zero;
 use stwo::core::{
     fields::{m31::M31, qm31::QM31},
@@ -28,7 +29,7 @@ pub struct StarkProofVar {
     pub composition_commitment: HashVar,
 
     pub sampled_values: TreeVec<ColumnVec<Vec<QM31Var>>>,
-    pub is_preprocessed_trace_present: ColumnVec<BitVar>,
+    pub is_preprocessed_trace_present: ColumnVec<PreProcessedTracePresent>,
 
     pub fri_proof: FriProofVar,
     pub proof_of_work: BitIntVar<64>,
@@ -51,15 +52,39 @@ impl AllocVar for StarkProofVar {
         let mut sampled_values = TreeVec::new(vec![]);
         let mut is_preprocessed_trace_present = ColumnVec::new();
 
+        let preprocessed_trace = PreProcessedTraceVariant::CanonicalWithoutPedersen
+            .to_preprocessed_trace()
+            .ids();
         {
             let mut round_res = ColumnVec::new();
-            for column in value.sampled_values[0].iter() {
-                if column.len() == 1 {
+            for (column, id) in value.sampled_values[0]
+                .iter()
+                .zip_eq(preprocessed_trace.iter())
+            {
+                let might_be_present = [
+                    "seq_25", "seq_24", "seq_23", "seq_22", "seq_21", "seq_19", "seq_17", "seq_16",
+                    "seq_15", "seq_14", "seq_13", "seq_10", "seq_9", "seq_7", "seq_5",
+                ];
+                if might_be_present.contains(&id.id.as_str()) {
+                    if column.len() == 1 {
+                        round_res.push(vec![QM31Var::new_variables(cs, &column[0], mode)]);
+                        is_preprocessed_trace_present.push(PreProcessedTracePresent::Dynamic(
+                            BitVar::new_variables(cs, &true, mode),
+                        ));
+                    } else if column.is_empty() {
+                        round_res.push(vec![QM31Var::new_variables(cs, &QM31::zero(), mode)]);
+                        is_preprocessed_trace_present.push(PreProcessedTracePresent::Dynamic(
+                            BitVar::new_variables(cs, &false, mode),
+                        ));
+                    } else {
+                        unimplemented!()
+                    }
+                } else if column.len() == 1 {
                     round_res.push(vec![QM31Var::new_variables(cs, &column[0], mode)]);
-                    is_preprocessed_trace_present.push(BitVar::new_variables(cs, &true, mode));
+                    is_preprocessed_trace_present.push(PreProcessedTracePresent::Fixed(true));
                 } else if column.is_empty() {
                     round_res.push(vec![QM31Var::new_variables(cs, &QM31::zero(), mode)]);
-                    is_preprocessed_trace_present.push(BitVar::new_variables(cs, &false, mode));
+                    is_preprocessed_trace_present.push(PreProcessedTracePresent::Fixed(false));
                 } else {
                     unimplemented!()
                 }
@@ -109,9 +134,19 @@ impl StarkProofVar {
             .iter()
             .zip(self.is_preprocessed_trace_present.iter())
         {
-            let current_log_size = M31Var::new_constant(&cs, &M31::from(*log_size));
-            let candidate_max = max.max(&current_log_size, 5);
-            max = M31Var::select(&max, &candidate_max, is_present);
+            match is_present {
+                PreProcessedTracePresent::Fixed(is_present) => {
+                    if *is_present {
+                        let current_log_size = M31Var::new_constant(&cs, &M31::from(*log_size));
+                        max = max.max(&current_log_size, 5);
+                    }
+                }
+                PreProcessedTracePresent::Dynamic(is_present) => {
+                    let current_log_size = M31Var::new_constant(&cs, &M31::from(*log_size));
+                    let candidate_max = max.max(&current_log_size, 5);
+                    max = M31Var::select(&max, &candidate_max, is_present);
+                }
+            }
         }
         max
     }
