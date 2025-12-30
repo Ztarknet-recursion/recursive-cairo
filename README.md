@@ -32,7 +32,7 @@ Special thanks to [Abdel Bakhta](https://x.com/AbdelStark) for scoping out the i
 
 ## Assumptions
 
-The Cairo-to-Plonk verifier circuit expects that the Cairo program in the Cairo proof is [a Cairo-to-Cairo recursive verifier][cairo-recursive-verifier] executed by [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. 
+The Cairo-to-Plonk verifier circuit expects that the Cairo program in the Cairo proof is [a Cairo-to-Cairo recursive verifier][cairo-recursive-verifier] executed by [the simple bootloader](https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/bootloaders/simple_bootloader_compiled.json), with feature flags `qm31_opcode` and `blake_outputs_packing` and the config with pow_bits = 26, log_last_layer_degree_bound = 0, log_blowup_factor = 1, and n_queries = 70. See [this doc](doc/example_proof.md) for more detail.
 
 This would result in the Cairo proof to have certain shapes and parameters below that we take as assumptions.
 
@@ -45,13 +45,13 @@ We do not make assumptions on the log sizes of each component in the Cairo-to-Ca
 
 ## Constructions
 
-We now discuss the constructions of the new components in the Cairo-to-Plonk verifier circuit.
+We now discuss the constructions of the new components (listed in [this doc](doc/components.md)) in the Cairo-to-Plonk verifier circuit.
 
 ### Fiat-Shamir
 
 Compared with a standard Stwo's Fiat-Shamir transform, the one for Cairo has some notable differences:
 
-- It needs to verify that the claim follows [a list of requirements](https://github.com/Ztarknet-recursion/stwo-cairo-fork/blob/main/stwo_cairo_prover/crates/cairo-air/src/verifier.rs#L29) about the Cairo memory spaces and relation uses.
+- It needs to verify that the claim follows [a list of requirements](https://github.com/Ztarknet-recursion/stwo-cairo-fork/blob/main/stwo_cairo_prover/crates/cairo-air/src/verifier.rs#L29) about the Cairo memory spaces and relation uses. See [this doc](doc/formality_check.md) for more detail.
 - The verifier parameters can pre-absorb (hardcode) the program segments for efficiency.
 - It needs to perform an interaction PoW with 24 bits.
 - The public memory sections are treated as public input.
@@ -102,6 +102,8 @@ To verify the final Plonk proof, one needs to get the final preprocessed column 
 These documentations discuss some new designs in this repository.
 
 - [Description of the example proof being verified](doc/example_proof.md)
+- [List of components in Cairo](doc/components.md)
+- [Cairo proof formality checks](doc/formality_check.md)
 
 [cairo-recursive-verifier]: https://github.com/Ztarknet-recursion/zebra-fork/blob/m-kus/compress-proof/zebra-prove/recursion/src/lib.cairo
 [snos]: https://github.com/keep-starknet-strange/snos
