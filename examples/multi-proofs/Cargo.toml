@@ -18,3 +18,12 @@ circle-plonk-dsl-primitives = { path = "../../primitives" }
 num-traits.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+cairo-air.workspace = true
+
+[[bench]]
+name = "verify_bench"
+harness = false
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+bzip2 = "0.4"

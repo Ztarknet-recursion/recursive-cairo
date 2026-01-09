@@ -31,7 +31,7 @@ Special thanks to [Abdel Bakhta](https://x.com/AbdelStark) for scoping out the i
 | [`level4_20_8_8.bin`](examples/data/level4_20_8_8.bin) | ~86 KiB | Verifies `level3_23_8_7.bin` using Plonk-to-Plonk verifier<br>Config: pow_bits = 20, log_last_layer_degree_bound = 8, log_blowup_factor = 8, n_queries = 10 |
 | [`level5_28_7_9.bin`](examples/data/level5_28_7_9.bin) | ~75 KiB | Verifies `level4_20_8_8.bin` using Plonk-to-Plonk verifier<br>Config: pow_bits = 28, log_last_layer_degree_bound = 7, log_blowup_factor = 9, n_queries = 8 |
 
-Note that generating the proofs again will result in slight variations of the proof sizes. 
+Note that generating the proofs again will result in slight variations of the proof sizes. We additionally note that the verification time is significantly lower (from 96ms for recursive_proof.bin.bz to 3ms for level5_28_7_9.bin).
 
 ## How to Reproduce
 
